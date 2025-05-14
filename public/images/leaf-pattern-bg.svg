@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Leaf Pattern Background</title>
+    <g stroke="none" fill="#7FDB3F" fill-opacity="0.15">
+        <!-- Folha 1 -->
+        <path d="M20,20 C30,10 50,10 50,30 C50,50 30,50 20,30 C15,40 15,60 30,70 C45,80 60,70 65,55 C70,70 65,85 50,90 C35,95 15,85 10,65 C5,45 10,30 20,20 Z"></path>
+        
+        <!-- Folha 2 -->
+        <path d="M130,30 C140,20 160,20 160,40 C160,60 140,60 130,40 C125,50 125,70 140,80 C155,90 170,80 175,65 C180,80 175,95 160,100 C145,105 125,95 120,75 C115,55 120,40 130,30 Z"></path>
+        
+        <!-- Folha 3 -->
+        <path d="M40,110 C50,100 70,100 70,120 C70,140 50,140 40,120 C35,130 35,150 50,160 C65,170 80,160 85,145 C90,160 85,175 70,180 C55,185 35,175 30,155 C25,135 30,120 40,110 Z"></path>
+        
+        <!-- Folha 4 -->
+        <path d="M150,130 C160,120 180,120 180,140 C180,160 160,160 150,140 C145,150 145,170 160,180 C175,190 190,180 195,165 C200,180 195,195 180,200 C165,205 145,195 140,175 C135,155 140,140 150,130 Z"></path>
+        
+        <!-- Pequenas folhas espalhadas -->
+        <circle cx="90" cy="30" r="5"></circle>
+        <circle cx="100" cy="60" r="8"></circle>
+        <circle cx="30" cy="80" r="6"></circle>
+        <circle cx="170" cy="90" r="7"></circle>
+        <circle cx="120" cy="110" r="5"></circle>
+        <circle cx="80" cy="150" r="6"></circle>
+        <circle cx="50" cy="180" r="8"></circle>
+        <circle cx="160" cy="20" r="4"></circle>
+    </g>
+</svg> 
