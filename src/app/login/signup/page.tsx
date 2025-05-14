@@ -34,8 +34,11 @@ export default function SignUp() {
 
       if (error) throw error;
       
-      // Redirecionar para o login com mensagem de sucesso
-      router.push('/login?registered=true');
+      // Armazenar flag de registro bem-sucedido no localStorage
+      localStorage.setItem('justRegistered', 'true');
+      
+      // Redirecionar para o login
+      router.push('/login');
     } catch (error: any) {
       setError(error.message || 'Erro ao criar conta');
     } finally {
@@ -248,7 +251,7 @@ export default function SignUp() {
                 fontWeight: theme.typography.fontWeight.medium 
               }}
             >
-              Faça login
+              Entrar
             </Link>
           </p>
         </div>
