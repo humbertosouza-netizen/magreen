@@ -1,0 +1,19 @@
+# Dependências
+node_modules
+.next
+out
+
+# Build
+build
+dist
+
+# Arquivos gerados
+next-env.d.ts
+.vercel
+
+# Arquivos de configuração
+.eslintrc.json
+eslint.config.mjs
+
+# Arquivos com problemas específicos
+src/app/dashboard/layout-fixed.tsx 
