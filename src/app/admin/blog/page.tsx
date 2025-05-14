@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { isUserAdmin } from '@/lib/permissions';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 interface BlogPost {
   id: string;
@@ -29,7 +29,6 @@ export default function AdminBlogPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     // Detectar se é dispositivo móvel
@@ -65,7 +64,7 @@ export default function AdminBlogPage() {
     }
 
     checkAdmin();
-  }, [router, supabase]);
+  }, [router]);
 
   async function fetchPosts() {
     try {
