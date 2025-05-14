@@ -1,10 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import theme from '@/styles/theme';
+
+// Componente cliente que usa useSearchParams
+function LoginWithParams({ onRegistered }: { onRegistered: (registered: boolean) => void }) {
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    // Verificar se o usuário acabou de se registrar
+    const registered = searchParams.get('registered');
+    if (registered) {
+      onRegistered(true);
+    }
+  }, [searchParams, onRegistered]);
+  
+  return null;
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,18 +27,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    // Verificar se o usuário acabou de se registrar
-    const registered = searchParams.get('registered');
+  const handleRegistered = (registered: boolean) => {
     if (registered) {
       setMessage({
         text: 'Cadastro realizado com sucesso! Por favor, faça login.',
         type: 'success'
       });
     }
-  }, [searchParams]);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +73,11 @@ export default function Login() {
         backgroundRepeat: 'no-repeat'
       }}
     >
+      {/* Suspense boundary for useSearchParams */}
+      <Suspense fallback={null}>
+        <LoginWithParams onRegistered={handleRegistered} />
+      </Suspense>
+
       {/* Overlay escuro para melhorar a legibilidade */}
       <div 
         className="absolute inset-0 z-0" 
