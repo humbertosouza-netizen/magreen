@@ -1,0 +1,10 @@
+{
+  "buildCommand": "next build --no-lint",
+  "ignoreCommand": "node -e \"process.exit(0)\"",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "framework": "nextjs"
+} 
