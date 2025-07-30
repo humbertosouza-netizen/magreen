@@ -6,27 +6,52 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import theme from '@/styles/theme';
 import Link from 'next/link';
-import { usePageState } from '@/hooks/usePageState';
+
+import RichTextEditor from '@/components/ui/RichTextEditor';
+import ClickableImageContent from '@/components/ui/ClickableImageContent';
 
 export default function NovoBlogPost() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isAdmin } = useUser();
   const [loading, setLoading] = useState(false);
-  const [titulo, setTitulo] = usePageState('blog_novo_titulo', '');
-  const [resumo, setResumo] = usePageState('blog_novo_resumo', '');
-  const [conteudo, setConteudo] = usePageState('blog_novo_conteudo', '');
-  const [categoria, setCategoria] = usePageState('blog_novo_categoria', '');
+  const [titulo, setTitulo] = useState('');
+  const [resumo, setResumo] = useState('');
+  const [conteudo, setConteudo] = useState('');
+  const [categoria, setCategoria] = useState('');
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = usePageState<string[]>('blog_novo_tags', []);
-  const [imagemUrl, setImagemUrl] = usePageState('blog_novo_imagem_url', '');
-  const [publicar, setPublicar] = usePageState('blog_novo_publicar', false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [imagemUrl, setImagemUrl] = useState('');
+  const [publicar, setPublicar] = useState(false);
   const [erro, setErro] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadingContentImage, setUploadingContentImage] = useState(false);
 
   useEffect(() => {
     if (!user) {
       router.push('/login');
+      return;
     }
-  }, [user, router]);
+    
+    // Verificar se o usuário é admin
+    if (!isAdmin) {
+      router.push('/dashboard/blog');
+      return;
+    }
+  }, [user, isAdmin, router]);
+
+  // Limpar dados do localStorage e garantir que a página sempre comece vazia
+  useEffect(() => {
+    // Limpar dados salvos anteriormente no localStorage
+    localStorage.removeItem('blog_novo_titulo');
+    localStorage.removeItem('blog_novo_resumo');
+    localStorage.removeItem('blog_novo_conteudo');
+    localStorage.removeItem('blog_novo_categoria');
+    localStorage.removeItem('blog_novo_tags');
+    localStorage.removeItem('blog_novo_publicar');
+    
+    // Garantir que a imagem de capa seja sempre limpa
+    setImagemUrl('');
+  }, []);
 
   const adicionarTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -129,6 +154,77 @@ export default function NovoBlogPost() {
     }
   };
 
+  // Função para upload de imagem de capa
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const filePath = `blog-capa/${fileName}`;
+    const { data, error } = await supabase.storage.from('blog-capas').upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type
+    });
+    if (error) {
+      setErro('Erro ao fazer upload da imagem.');
+      setUploading(false);
+      return;
+    }
+    // Obter URL pública
+    const { data: publicData } = supabase.storage.from('blog-capas').getPublicUrl(filePath);
+    setImagemUrl(publicData.publicUrl);
+    setUploading(false);
+  };
+
+  // Função para upload de imagem do conteúdo
+  const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingContentImage(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const filePath = `blog-conteudo/${fileName}`;
+    const { data, error } = await supabase.storage.from('blog-conteudo').upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type
+    });
+    if (error) {
+      console.error('Erro detalhado do upload:', error);
+      let mensagemErro = 'Erro ao fazer upload da imagem do conteúdo.';
+      
+      if (error.message) {
+        if (error.message.includes('bucket')) {
+          mensagemErro = 'Bucket de armazenamento não encontrado. Verifique se o bucket "blog-conteudo" foi criado.';
+        } else if (error.message.includes('policy') || error.message.includes('permission')) {
+          mensagemErro = 'Permissão negada. Verifique se as políticas de acesso estão configuradas.';
+        } else if (error.message.includes('size')) {
+          mensagemErro = 'Arquivo muito grande. O tamanho máximo é 5MB.';
+        } else if (error.message.includes('type')) {
+          mensagemErro = 'Tipo de arquivo não suportado. Use JPEG, PNG, GIF ou WebP.';
+        } else {
+          mensagemErro = `Erro: ${error.message}`;
+        }
+      }
+      
+      setErro(mensagemErro);
+      setUploadingContentImage(false);
+      return;
+    }
+    // Obter URL pública
+    const { data: publicData } = supabase.storage.from('blog-conteudo').getPublicUrl(filePath);
+    
+    // Inserir a imagem no conteúdo como HTML
+    const imageHtml = `<p><img src="${publicData.publicUrl}" alt="${file.name}" style="max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0;" /></p>`;
+    
+    // Inserir no final do conteúdo
+    setConteudo(prev => prev + imageHtml);
+    
+    setUploadingContentImage(false);
+  };
+
   return (
     <div className="relative">
       {/* Fundo estilizado com padrão de folhas */}
@@ -141,9 +237,9 @@ export default function NovoBlogPost() {
         }}
       />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 md:py-10 pb-24 md:pb-10">
         <div 
-          className="mb-8 relative overflow-hidden rounded-xl p-6"
+          className="mb-6 md:mb-8 relative overflow-hidden rounded-xl p-4 md:p-6"
           style={{
             background: `linear-gradient(135deg, ${theme.colors.primary}90, ${theme.colors.accent}70)`,
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
@@ -157,9 +253,9 @@ export default function NovoBlogPost() {
             }}
           />
           
-          <div className="relative z-10 flex justify-between items-center">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
             <h1 
-              className="text-2xl md:text-3xl font-bold"
+              className="text-xl md:text-2xl lg:text-3xl font-bold"
               style={{ 
                 color: '#fff',
                 textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
@@ -170,7 +266,7 @@ export default function NovoBlogPost() {
             
             <Link 
               href="/dashboard/blog"
-              className="px-4 py-2 rounded-full shadow-sm text-sm font-medium"
+              className="px-3 md:px-4 py-2 rounded-full shadow-sm text-sm font-medium"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 color: '#fff',
@@ -251,20 +347,58 @@ export default function NovoBlogPost() {
               <label htmlFor="conteudo" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                 Conteúdo *
               </label>
-              <textarea
-                id="conteudo"
-                rows={10}
+              
+              {/* Botão para upload de imagem no conteúdo */}
+              <div className="mb-3">
+                <label htmlFor="conteudo-imagem" className="inline-flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: theme.colors.textPrimary,
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                  </svg>
+                  {uploadingContentImage ? 'Enviando imagem...' : 'Inserir Imagem no Conteúdo'}
+                  <input
+                    id="conteudo-imagem"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleContentImageUpload}
+                    className="hidden"
+                    disabled={uploadingContentImage}
+                  />
+                </label>
+                {uploadingContentImage && (
+                  <span className="ml-3 text-sm" style={{ color: theme.colors.primary }}>
+                    Processando imagem...
+                  </span>
+                )}
+              </div>
+              
+              <RichTextEditor
                 value={conteudo}
-                onChange={(e) => setConteudo(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg text-white"
-                style={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  outline: 'none',
-                }}
-                required
-                placeholder="Escreva o conteúdo completo do post"
+                onChange={setConteudo}
+                placeholder="Escreva o conteúdo completo do post. Você pode colar conteúdo do Word e ele manterá a formatação!"
+                theme={theme}
               />
+              
+              {/* Preview do conteúdo HTML */}
+              {conteudo && (
+                <div className="mt-3 p-3 rounded-lg" style={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <h4 className="text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                    Preview do Conteúdo:
+                  </h4>
+                  <ClickableImageContent 
+                    content={conteudo}
+                    className="text-sm prose prose-invert max-w-none"
+                  />
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -289,21 +423,28 @@ export default function NovoBlogPost() {
               
               <div>
                 <label htmlFor="imagem" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
-                  URL da Imagem de Capa
+                  Imagem de Capa
                 </label>
                 <input
                   id="imagem"
-                  type="text"
-                  value={imagemUrl}
-                  onChange={(e) => setImagemUrl(e.target.value)}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
                   className="w-full px-4 py-3 rounded-lg text-white"
-                  style={{ 
+                  style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.07)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     outline: 'none',
                   }}
-                  placeholder="https://exemplo.com/imagem.jpg"
+                  disabled={uploading}
                 />
+                {uploading && <p style={{ color: theme.colors.primary, marginTop: 8 }}>Enviando imagem...</p>}
+                {imagemUrl && (
+                  <div className="mt-2">
+                    <img src={imagemUrl} alt="Capa do post" style={{ maxWidth: 320, borderRadius: 8 }} />
+                    <p className="text-xs mt-1" style={{ color: theme.colors.textSecondary }}>{imagemUrl}</p>
+                  </div>
+                )}
               </div>
             </div>
             

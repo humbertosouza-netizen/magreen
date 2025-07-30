@@ -21,6 +21,11 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
+  // Forçar atualização do título
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
+
   // Envolver o conteúdo com o UserProvider
   return (
     <DashboardStateProvider>
@@ -50,6 +55,11 @@ function DashboardContent({
   const pathname = usePathname();
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Forçar atualização do título em todas as páginas do dashboard
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
 
   // Salvar e restaurar o estado da página usando localStorage
   useEffect(() => {
@@ -298,7 +308,8 @@ function DashboardContent({
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
         }}
       >
-        <div className="flex justify-center w-full">
+        {/* Logo à esquerda */}
+        <div className="flex items-center">
           <Link href="/dashboard" className="flex items-center blog-clickable-element">
             <img 
               src="/images/logo/magnificencia-green-full-logo.png"
@@ -314,10 +325,11 @@ function DashboardContent({
           </Link>
         </div>
         
-        <div className="flex items-center space-x-3">
+        {/* Ícones de navegação à direita */}
+        <div className="flex items-center gap-4">
           <Link 
             href="/dashboard/perfil" 
-            className="p-2 relative blog-clickable-element flex items-center justify-center"
+            className="p-2 relative blog-clickable-element flex items-center justify-center cursor-pointer"
             style={{ color: pathname === '/dashboard/perfil' ? theme.colors.primary : theme.colors.textPrimary }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
@@ -327,7 +339,7 @@ function DashboardContent({
           
           <Link 
             href="/dashboard/seguranca" 
-            className="p-2 relative blog-clickable-element flex items-center justify-center"
+            className="p-2 relative blog-clickable-element flex items-center justify-center cursor-pointer"
             style={{ color: pathname === '/dashboard/seguranca' ? theme.colors.primary : theme.colors.textPrimary }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
@@ -337,7 +349,7 @@ function DashboardContent({
           
           <Link 
             href="/dashboard/produtos" 
-            className="p-2 relative blog-clickable-element flex items-center justify-center"
+            className="p-2 relative blog-clickable-element flex items-center justify-center cursor-pointer"
             style={{ color: theme.colors.textPrimary }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -582,7 +594,14 @@ function DashboardContent({
           </header>
 
           {/* Área de conteúdo principal com scroll e efeito de brilho ambiental */}
-          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 relative">
+          <main 
+            className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8 relative main-container mobile-scroll-visible"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(127, 219, 63, 0.9) rgba(0, 0, 0, 0.5)',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
             {/* Efeito de luz ambiente */}
             <div 
               className="absolute top-0 left-1/4 w-1/2 h-1/3 opacity-30 pointer-events-none z-0"
@@ -600,12 +619,13 @@ function DashboardContent({
           
           {/* Barra de navegação inferior para mobile - Estilo moderno flutuante */}
           <div 
-            className="md:hidden flex justify-around items-center py-2 px-4 z-10 fixed bottom-0 left-0 right-0 border-t"
+            className="md:hidden flex justify-around items-center py-3 px-4 z-10 fixed bottom-0 left-0 right-0 border-t"
             style={{ 
               backgroundColor: 'rgba(31, 41, 55, 0.98)',
               backdropFilter: 'blur(12px)',
               borderColor: `${theme.colors.primary}20`,
-              boxShadow: '0 -1px 8px rgba(0,0,0,0.15)'
+              boxShadow: '0 -1px 8px rgba(0,0,0,0.15)',
+              paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))'
             }}
           >
             {navItems.slice(0, 4).map((item) => {
@@ -657,6 +677,136 @@ function DashboardContent({
           </div>
         </div>
       </div>
+
+      {/* CSS Inline para FORÇAR scrollbar no mobile */}
+      <style jsx global>{`
+        @media (max-width: 768px), (pointer: coarse) {
+          /* FORÇAR SCROLLBAR VISÍVEL NO MOBILE */
+          html, body {
+            overflow: auto !important;
+            scrollbar-width: thin !important;
+            scrollbar-color: rgba(127, 219, 63, 0.9) rgba(0, 0, 0, 0.5) !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          
+          /* Scrollbar webkit EXTRA visível */
+          *::-webkit-scrollbar {
+            width: 18px !important;
+            height: 18px !important;
+            -webkit-appearance: none !important;
+            display: block !important;
+            background: rgba(0, 0, 0, 0.4) !important;
+          }
+
+          *::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.6) !important;
+            border-radius: 9px !important;
+            border: 2px solid rgba(127, 219, 63, 0.4) !important;
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4) !important;
+          }
+
+          *::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, 
+              rgba(127, 219, 63, 0.95) 0%, 
+              rgba(77, 168, 218, 0.95) 50%,
+              rgba(127, 219, 63, 0.95) 100%) !important;
+            border-radius: 9px !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 
+              0 0 15px rgba(127, 219, 63, 0.7),
+              inset 0 0 8px rgba(255, 255, 255, 0.4) !important;
+            min-height: 35px !important;
+            min-width: 35px !important;
+          }
+          
+          *::-webkit-scrollbar-thumb:hover,
+          *::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(180deg, 
+              rgba(127, 219, 63, 1) 0%, 
+              rgba(77, 168, 218, 1) 50%,
+              rgba(127, 219, 63, 1) 100%) !important;
+            box-shadow: 
+              0 0 20px rgba(127, 219, 63, 0.9),
+              inset 0 0 10px rgba(255, 255, 255, 0.5) !important;
+            transform: scale(1.08) !important;
+          }
+          
+          /* Forçar overflow em elementos específicos do dashboard */
+          main, .main-container, .mobile-scroll-visible,
+          div[class*="dashboard"], div[class*="estudos"], div[class*="cultivo"] {
+            overflow-y: auto !important;
+            scrollbar-width: thin !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          
+          /* Correções específicas para mobile cultivo */
+          @media (max-width: 767px) {
+            .main-container {
+              padding: 16px !important;
+              max-width: 100vw !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Garantir que os cards não transbordem */
+            div[class*="grid"] {
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+              gap: 16px !important;
+            }
+            
+            /* Cards individuais */
+            div[class*="rounded-xl"] {
+              max-width: 100% !important;
+              margin-bottom: 16px !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Espaçamento entre seções */
+            .main-container > div {
+              margin-bottom: 16px !important;
+            }
+            
+            /* Safe area para bottom navigation */
+            .main-container {
+              padding-bottom: 80px !important;
+            }
+          }
+          
+          /* Correções específicas para desktop */
+          @media (min-width: 1024px) {
+            .main-container {
+              padding: 32px !important;
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Garantir que os cards tenham espaçamento adequado */
+            div[class*="grid"] {
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+              gap: 32px !important;
+            }
+            
+            /* Cards individuais */
+            div[class*="rounded-xl"] {
+              max-width: 100% !important;
+              margin-bottom: 24px !important;
+              box-sizing: border-box !important;
+            }
+            
+            /* Espaçamento entre seções */
+            .main-container > div {
+              margin-bottom: 24px !important;
+            }
+            
+            /* Espaçamento entre grupos de cards */
+            .card-group,
+            div[class*="card-group"] {
+              margin-bottom: 32px !important;
+            }
+          }
+        }
+      `}</style>
     </div>
   );
 } 

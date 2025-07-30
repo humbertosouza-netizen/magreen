@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { colors } from '@/styles/colors';
 import { supabase } from '@/lib/supabase';
+import ClickableImageContent from '@/components/ui/ClickableImageContent';
+import ContentWithCarousel from '@/components/ui/ContentWithCarousel';
 
 interface Article {
   id: string;
@@ -78,16 +80,28 @@ export default function ArticlePage() {
       let autorAvatar = '';
       
       if (articleData.autor_id) {
-        const { data: authorData } = await supabase
+        console.log('Buscando autor com ID:', articleData.autor_id);
+        
+        const { data: authorData, error: authorError } = await supabase
           .from('profiles')
-          .select('nome_completo, avatar_url')
+          .select('nome_completo, avatar_url, nickname, email')
           .eq('id', articleData.autor_id)
           .single();
           
+        console.log('Dados do autor encontrados:', authorData);
+        console.log('Erro na busca do autor:', authorError);
+          
         if (authorData) {
-          autorNome = authorData.nome_completo || 'Usuário';
+          // Priorizar nickname, depois nome_completo, depois email, depois 'Usuário'
+          autorNome = authorData.nickname || authorData.nome_completo || authorData.email?.split('@')[0] || 'Usuário';
           autorAvatar = authorData.avatar_url || '';
+          
+          console.log('Nome do autor definido como:', autorNome);
+        } else {
+          console.log('Autor não encontrado na tabela profiles');
         }
+      } else {
+        console.log('Artigo não tem autor_id definido');
       }
 
       // Definir valores locais para exibição imediata
@@ -414,7 +428,7 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#1A1A1A', color: 'white' }}>
+    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: '#1A1A1A', color: 'white' }}>
       {/* Header com estilo bio-tech */}
       <header 
         className="border-b border-gray-800 relative z-10" 
@@ -425,48 +439,79 @@ export default function ArticlePage() {
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
         }}
       >
+        <style jsx>{`
+          .header-logo {
+            max-height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+            height: 1.5rem !important;
+            display: block !important;
+          }
+          @media (min-width: 640px) {
+            .header-logo { max-height: 2rem !important; height: 2rem !important; }
+          }
+          @media (min-width: 768px) {
+            .header-logo { max-height: 2.5rem !important; height: 2.5rem !important; }
+          }
+          header img.header-logo {
+            max-width: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+          }
+          .blog-clickable-element img.header-logo {
+            max-height: 1.5rem !important;
+            height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+          }
+          @media (min-width: 640px) {
+            .blog-clickable-element img.header-logo { max-height: 2rem !important; height: 2rem !important; }
+          }
+          @media (min-width: 768px) {
+            .blog-clickable-element img.header-logo { max-height: 2.5rem !important; height: 2.5rem !important; }
+          }
+        `}</style>
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
             <Link 
               href="/" 
               className="flex items-center space-x-2 blog-clickable-element"
             >
-              {/* Logo da MagnifiGreen */}
               <img 
                 src="/images/logo/magnificencia-green-full-logo.png" 
                 alt="MagnifiGreen Logo" 
-                className="h-10"
+                className="header-logo"
               />
               <div>
                 <h1 
                   className="text-xl font-bold gradient-text"
-                  style={{ 
-                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-                  }}
+                  style={{ textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)' }}
                 >
                   MAGNIFIGREEN
                 </h1>
                 <p className="text-xs text-gray-400 hidden sm:block">Blog Sustentável & Tecnológico</p>
               </div>
             </Link>
-
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link 
-                href="/blog"
-                className="blog-clickable-element px-3 py-1.5 rounded text-sm font-medium"
+                href="/blog" 
+                className="blog-clickable-element px-2 sm:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-medium flex items-center"
                 style={{ 
                   backgroundColor: 'rgba(26, 32, 44, 0.6)',
                   backdropFilter: 'blur(4px)',
                   border: '1px solid rgba(127, 219, 63, 0.3)'
                 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Voltar ao Blog
+                <span className="hidden sm:inline">Voltar ao Blog</span>
+                <span className="sm:hidden">Voltar</span>
               </Link>
               <Link 
-                href="/dashboard"
+                href="/dashboard" 
                 className="blog-clickable-element rounded-md px-3 py-1.5 text-sm font-medium flex items-center"
                 style={{ 
                   background: `linear-gradient(135deg, ${colors.green}ee, ${colors.blue}ee)`,
@@ -477,7 +522,7 @@ export default function ArticlePage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
-                Dashboard
+                Comunidade
               </Link>
             </div>
           </div>
@@ -485,23 +530,23 @@ export default function ArticlePage() {
       </header>
 
       {/* Conteúdo do artigo */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Coluna principal */}
-          <div className="lg:w-2/3">
+          <div className="w-full lg:w-2/3">
             {/* Breadcrumb */}
-            <div className="mb-6 flex items-center text-sm text-gray-400">
+            <div className="mb-4 sm:mb-6 flex items-center text-xs sm:text-sm text-gray-400">
               <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 mx-1 sm:mx-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               <span className="text-gray-300">{article.categoria}</span>
             </div>
             
             {/* Categoria e data */}
-            <div className="flex flex-wrap justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
               <span 
-                className="px-3 py-1 text-xs font-medium rounded-md mb-2 sm:mb-0"
+                className="px-2 sm:px-3 py-1 text-xs font-medium rounded-md self-start"
                 style={{ 
                   backgroundColor: colors.green + 'e6',
                   color: '#121212'
@@ -509,16 +554,16 @@ export default function ArticlePage() {
               >
                 {article.categoria}
               </span>
-              <span className="text-sm text-gray-400">{formatDate(article.data_criacao)}</span>
+              <span className="text-xs sm:text-sm text-gray-400">{formatDate(article.data_criacao)}</span>
             </div>
             
             {/* Título do artigo */}
-            <h1 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">{article.titulo}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 leading-tight">{article.titulo}</h1>
             
             {/* Autor */}
-            <div className="flex items-center mb-8">
+            <div className="flex items-center mb-6 sm:mb-8">
               <div 
-                className="h-10 w-10 rounded-full bg-cover bg-center mr-3" 
+                className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-cover bg-center mr-2 sm:mr-3" 
                 style={{ 
                   backgroundImage: article.autor_avatar 
                     ? `url('${article.autor_avatar}')` 
@@ -527,14 +572,14 @@ export default function ArticlePage() {
                 }}
               />
               <div>
-                <div className="text-sm font-medium text-white">{article.autor_nome}</div>
+                <div className="text-xs sm:text-sm font-medium text-white">{article.autor_nome}</div>
                 <div className="text-xs text-gray-400">Autor</div>
               </div>
             </div>
             
             {/* Imagem em destaque */}
             {article.imagem_url && (
-              <div className="relative h-64 md:h-96 mb-8 rounded-xl overflow-hidden">
+              <div className="relative h-48 sm:h-64 md:h-96 mb-6 sm:mb-8 rounded-lg sm:rounded-xl overflow-hidden">
                 <div 
                   className="absolute inset-0 bg-cover bg-center" 
                   style={{ 
@@ -552,20 +597,19 @@ export default function ArticlePage() {
             )}
             
             {/* Conteúdo do artigo */}
-            <div 
-              className="prose prose-invert prose-lg max-w-none mb-10 article-content"
-              style={{
-                color: '#E2E8F0'
-              }}
-              dangerouslySetInnerHTML={{ __html: article.conteudo }}
-            />
+            <div className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none mb-8 sm:mb-10 article-content">
+              <ContentWithCarousel 
+                content={article.conteudo}
+                className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none"
+              />
+            </div>
             
             {/* Tags */}
-            <div className="flex flex-wrap gap-2 mb-10">
+            <div className="flex flex-wrap gap-1 sm:gap-2 mb-8 sm:mb-10">
               {article.tags.map((tag, index) => (
                 <span 
                   key={index} 
-                  className="text-sm py-1 px-3 rounded-full bg-gray-800 text-gray-300"
+                  className="text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-full bg-gray-800 text-gray-300"
                 >
                   #{tag}
                 </span>
@@ -573,33 +617,33 @@ export default function ArticlePage() {
             </div>
             
             {/* Separador */}
-            <div className="border-t border-gray-800 my-10"></div>
+            <div className="border-t border-gray-800 my-6 sm:my-10"></div>
             
             {/* Seção de comentários */}
-            <div className="bg-gray-800 rounded-xl p-6" style={{ 
+            <div className="bg-gray-800 rounded-lg sm:rounded-xl p-4 sm:p-6" style={{ 
               backgroundColor: 'rgba(26, 32, 44, 0.7)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.05)'
             }}>
-              <h3 className="text-xl font-bold mb-6">Comentários ({comments.length})</h3>
+              <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Comentários ({comments.length})</h3>
               
               {/* Formulário de comentário */}
-              <form onSubmit={handleCommentSubmit} className="mb-8">
+              <form onSubmit={handleCommentSubmit} className="mb-6 sm:mb-8">
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Escreva seu comentário..."
-                  className="w-full px-4 py-3 rounded-lg text-white text-sm focus:outline-none focus:ring-1 min-h-[120px]"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-white text-xs sm:text-sm focus:outline-none focus:ring-1 min-h-[100px] sm:min-h-[120px]"
                   style={{ 
                     backgroundColor: 'rgba(26, 32, 44, 0.5)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     backdropFilter: 'blur(4px)'
                   }}
                 ></textarea>
-                <div className="flex justify-end mt-3">
+                <div className="flex justify-end mt-2 sm:mt-3">
                   <button 
                     type="submit"
-                    className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 touch-manipulation blog-clickable-element"
+                    className="px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium disabled:opacity-50 touch-manipulation blog-clickable-element"
                     style={{ 
                       background: `linear-gradient(135deg, ${colors.green}ee, ${colors.blue}ee)`,
                       color: '#121212',
@@ -613,34 +657,35 @@ export default function ArticlePage() {
               </form>
               
               {/* Lista de comentários */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {comments.map(comment => (
-                  <div key={comment.id} className="rounded-lg p-4" style={{ 
+                  <div key={comment.id} className="rounded-lg p-3 sm:p-4" style={{ 
                     backgroundColor: 'rgba(26, 32, 44, 0.5)',
                     border: '1px solid rgba(255, 255, 255, 0.05)'
                   }}>
-                    <div className="flex items-center mb-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 overflow-hidden mr-3 flex items-center justify-center text-white">
+                    <div className="flex items-center mb-2 sm:mb-3">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-600 overflow-hidden mr-2 sm:mr-3 flex items-center justify-center text-white text-xs sm:text-sm">
                         {comment.author.charAt(0).toUpperCase()}
                       </div>
                       <div className="mr-auto">
-                        <span className="text-sm font-medium text-white">{comment.author}</span>
-                        <span className="text-xs text-gray-400 ml-2">{formatDate(comment.date)}</span>
+                        <span className="text-xs sm:text-sm font-medium text-white">{comment.author}</span>
+                        <span className="text-xs text-gray-400 ml-1 sm:ml-2">{formatDate(comment.date)}</span>
                       </div>
                     </div>
-                    <p className="text-gray-300 text-sm mb-3">{comment.content}</p>
+                    <p className="text-gray-300 text-xs sm:text-sm mb-2 sm:mb-3">{comment.content}</p>
                     <div className="flex items-center text-gray-400 text-xs">
                       <button className="flex items-center hover:text-white transition-colors blog-clickable-element">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                         </svg>
                         {comment.likes}
                       </button>
-                      <button className="flex items-center ml-4 hover:text-white transition-colors blog-clickable-element">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <button className="flex items-center ml-3 sm:ml-4 hover:text-white transition-colors blog-clickable-element">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                         </svg>
-                        Responder
+                        <span className="hidden sm:inline">Responder</span>
+                        <span className="sm:hidden">Resp</span>
                       </button>
                     </div>
                   </div>
@@ -650,66 +695,66 @@ export default function ArticlePage() {
           </div>
           
           {/* Sidebar */}
-          <div className="lg:w-1/3 space-y-8 mt-8 lg:mt-0">
+          <div className="w-full lg:w-1/3 space-y-6 sm:space-y-8 mt-6 sm:mt-8 lg:mt-0">
             {/* Artigos relacionados */}
-            <div className="rounded-xl overflow-hidden" style={{ 
+            <div className="rounded-lg sm:rounded-xl overflow-hidden" style={{ 
               backgroundColor: 'rgba(26, 32, 44, 0.7)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.05)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}>
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Artigos Relacionados</h3>
-              <div className="space-y-4">
-                {relatedArticles.length > 0 ? relatedArticles.map(related => (
+              <div className="p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Artigos Relacionados</h3>
+                              <div className="space-y-3 sm:space-y-4">
+                  {relatedArticles.length > 0 ? relatedArticles.map(related => (
                     <Link 
                       key={related.id} 
                       href={`/blog/${related.id}`}
-                      className="block border-b border-gray-700 pb-4 last:border-0 last:pb-0 hover:opacity-80 transition-opacity blog-clickable-element"
+                      className="block border-b border-gray-700 pb-3 sm:pb-4 last:border-0 last:pb-0 hover:opacity-80 transition-opacity blog-clickable-element"
                     >
                       <div className="flex">
                         {related.imagem_url && (
                           <div 
-                            className="h-16 w-16 rounded bg-gray-700 mr-3 bg-cover bg-center flex-shrink-0"
+                            className="h-12 w-12 sm:h-16 sm:w-16 rounded bg-gray-700 mr-2 sm:mr-3 bg-cover bg-center flex-shrink-0"
                             style={{ 
                               backgroundImage: `url('${related.imagem_url}')`,
                             }}
                           />
                         )}
                         <div>
-                          <h4 className="text-sm font-medium text-white mb-1 line-clamp-2">
+                          <h4 className="text-xs sm:text-sm font-medium text-white mb-1 line-clamp-2">
                             {related.titulo}
                       </h4>
                           <div className="flex items-center text-xs">
                             <span className="text-gray-400">{formatDate(related.data_criacao)}</span>
-                            <span className="mx-2">•</span>
+                            <span className="mx-1 sm:mx-2">•</span>
                             <span className="text-gray-400">{related.categoria}</span>
                           </div>
                         </div>
                       </div>
                     </Link>
                 )) : (
-                  <p className="text-gray-400 text-sm">Nenhum artigo relacionado encontrado.</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">Nenhum artigo relacionado encontrado.</p>
                 )}
                 </div>
               </div>
             </div>
             
             {/* Tags populares */}
-            <div className="rounded-xl overflow-hidden" style={{ 
+            <div className="rounded-lg sm:rounded-xl overflow-hidden" style={{ 
               backgroundColor: 'rgba(26, 32, 44, 0.7)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.05)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}>
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Tags</h3>
-                <div className="flex flex-wrap gap-2">
+              <div className="p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Tags</h3>
+                <div className="flex flex-wrap gap-1 sm:gap-2">
                   {article.tags.map((tag, index) => (
                 <Link 
                       key={index}
                       href={`/blog?tag=${tag}`}
-                      className="text-sm py-1 px-3 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors blog-clickable-element"
+                      className="text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors blog-clickable-element"
                       style={{ 
                         backgroundColor: 'rgba(255, 255, 255, 0.07)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -723,27 +768,27 @@ export default function ArticlePage() {
             </div>
             
             {/* Estatísticas do artigo */}
-            <div className="rounded-xl overflow-hidden" style={{ 
+            <div className="rounded-lg sm:rounded-xl overflow-hidden" style={{ 
               backgroundColor: 'rgba(26, 32, 44, 0.7)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.05)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}>
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Estatísticas</h3>
+              <div className="p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Estatísticas</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Comentários</span>
+                    <span className="text-xs sm:text-sm text-gray-400">Comentários</span>
                     <div className="flex items-center text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                       </svg>
-                      {comments.length}
+                      <span className="text-xs sm:text-sm">{comments.length}</span>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Data de publicação</span>
-                    <span className="text-white">{formatDate(article.data_criacao)}</span>
+                    <span className="text-xs sm:text-sm text-gray-400">Data de publicação</span>
+                    <span className="text-xs sm:text-sm text-white">{formatDate(article.data_criacao)}</span>
                   </div>
                 </div>
               </div>
@@ -754,12 +799,87 @@ export default function ArticlePage() {
 
       {/* Footer com elementos naturais */}
       <footer 
-        className="border-t relative overflow-hidden mt-16" 
+        className="border-t relative overflow-hidden mt-8 sm:mt-16" 
         style={{ 
           backgroundColor: 'rgba(26, 32, 44, 0.98)',
           borderColor: 'rgba(255, 255, 255, 0.05)'
         }}
       >
+        <style jsx>{`
+          /* CSS para a logo do footer */
+          .footer-logo {
+            max-height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+            height: 1.5rem !important;
+            display: block !important;
+          }
+          
+          @media (min-width: 640px) {
+            .footer-logo {
+              max-height: 2rem !important;
+              height: 2rem !important;
+            }
+          }
+          
+          @media (min-width: 768px) {
+            .footer-logo {
+              max-height: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+          }
+          
+          /* Corrigir problema da barra preta na lateral */
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            min-height: 100vh !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          
+          /* Garantir que o container não cause overflow */
+          .container {
+            max-width: 100% !important;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+          }
+          
+          @media (min-width: 640px) {
+            .container {
+              padding-left: 1rem !important;
+              padding-right: 1rem !important;
+            }
+          }
+          
+          /* Corrigir overflow horizontal */
+          * {
+            box-sizing: border-box !important;
+          }
+          
+          /* Garantir que imagens não causem overflow */
+          img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+          
+          /* Corrigir problemas específicos do mobile */
+          @media (max-width: 640px) {
+            .container {
+              padding-left: 0.75rem !important;
+              padding-right: 0.75rem !important;
+            }
+            
+            /* Garantir que o conteúdo não ultrapasse a largura da tela */
+            .w-full {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+          }
+        `}</style>
         {/* Elemento decorativo */}
         <div className="absolute -bottom-10 right-0 opacity-10">
           <svg width="300" height="300" viewBox="0 0 24 24" fill={colors.green}>
@@ -767,28 +887,28 @@ export default function ArticlePage() {
           </svg>
         </div>
         
-        <div className="container mx-auto px-4 py-10">
+        <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-10">
           <div className="flex flex-col md:flex-row justify-between">
-            <div className="mb-8 md:mb-0">
-              <div className="flex items-center mb-4">
+            <div className="mb-6 sm:mb-8 md:mb-0">
+              <div className="flex items-center mb-3 sm:mb-4">
                 <img 
                   src="/images/logo/magnificencia-green-full-logo.png" 
                   alt="MagnifiGreen Logo" 
-                  className="h-10 mr-2"
+                  className="footer-logo mr-2"
                 />
                 <div>
-                  <h3 className="text-xl font-semibold gradient-text">MAGNIFIGREEN</h3>
-                  <p className="text-sm text-gray-400">Blog Sustentável & Tecnológico</p>
+                  <h3 className="text-sm sm:text-lg md:text-xl font-semibold gradient-text">MAGNIFIGREEN</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Blog Sustentável & Tecnológico</p>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm max-w-md">
+              <p className="text-gray-400 text-xs sm:text-sm max-w-md">
                 Conectando inovação, sustentabilidade e tecnologia para construir um futuro mais verde e consciente.
               </p>
             </div>
           </div>
           
-          <div className="border-t border-gray-800 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-500 text-sm mb-4 md:mb-0">
+          <div className="border-t border-gray-800 mt-6 sm:mt-10 pt-4 sm:pt-6 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-gray-500 text-xs sm:text-sm mb-3 sm:mb-4 md:mb-0">
               &copy; {new Date().getFullYear()} MagnifiGreen. Todos os direitos reservados.
             </p>
             <div className="flex space-x-4">

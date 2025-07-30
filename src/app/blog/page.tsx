@@ -159,6 +159,61 @@ export default function BlogPage() {
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
         }}
       >
+        <style jsx>{`
+          /* CSS específico para a logo do header */
+          .header-logo {
+            max-height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+            height: 1.5rem !important;
+            display: block !important;
+          }
+          
+          @media (min-width: 640px) {
+            .header-logo {
+              max-height: 2rem !important;
+              height: 2rem !important;
+            }
+          }
+          
+          @media (min-width: 768px) {
+            .header-logo {
+              max-height: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+          }
+          
+          /* Sobrescrever qualquer CSS global que possa estar interferindo */
+          header img.header-logo {
+            max-width: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+          }
+          
+          /* Garantir que a logo não seja afetada por outros estilos */
+          .blog-clickable-element img.header-logo {
+            max-height: 1.5rem !important;
+            height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+          }
+          
+          @media (min-width: 640px) {
+            .blog-clickable-element img.header-logo {
+              max-height: 2rem !important;
+              height: 2rem !important;
+            }
+          }
+          
+          @media (min-width: 768px) {
+            .blog-clickable-element img.header-logo {
+              max-height: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+          }
+        `}</style>
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
             <Link 
@@ -169,7 +224,7 @@ export default function BlogPage() {
               <img 
                 src="/images/logo/magnificencia-green-full-logo.png" 
                 alt="MagnifiGreen Logo" 
-                className="h-10"
+                className="header-logo"
               />
               <div>
                 <h1 
@@ -253,7 +308,7 @@ export default function BlogPage() {
             </p>
             
             {/* Categorias em estilo de chips */}
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
+            <div className="flex flex-wrap justify-center gap-2 mb-4 md:mb-8 lg:mb-12">
               {categories.map((cat) => (
                 <button 
                   key={cat.id}
@@ -293,7 +348,7 @@ export default function BlogPage() {
         )}
 
         {filteredArticles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mb-4 md:mb-6 lg:mb-8">
             {filteredArticles.map((article) => (
               <Link 
                 href={`/blog/${article.id}`} 
@@ -418,6 +473,61 @@ export default function BlogPage() {
           borderColor: 'rgba(255, 255, 255, 0.05)'
         }}
       >
+        <style jsx>{`
+          /* CSS para a logo do footer */
+          .footer-logo {
+            max-height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+            height: 1.5rem !important;
+            display: block !important;
+          }
+          
+          @media (min-width: 640px) {
+            .footer-logo {
+              max-height: 2rem !important;
+              height: 2rem !important;
+            }
+          }
+          
+          @media (min-width: 768px) {
+            .footer-logo {
+              max-height: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+          }
+          
+          /* Sobrescrever qualquer CSS global que possa estar interferindo */
+          footer img.footer-logo {
+            max-width: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+          }
+          
+          /* Garantir que a logo não seja afetada por outros estilos */
+          .blog-clickable-element img.footer-logo {
+            max-height: 1.5rem !important;
+            height: 1.5rem !important;
+            width: auto !important;
+            object-fit: contain !important;
+          }
+          
+          @media (min-width: 640px) {
+            .blog-clickable-element img.footer-logo {
+              max-height: 2rem !important;
+              height: 2rem !important;
+            }
+          }
+          
+          @media (min-width: 768px) {
+            .blog-clickable-element img.footer-logo {
+              max-height: 2.5rem !important;
+              height: 2.5rem !important;
+            }
+          }
+        `}</style>
         {/* Elemento decorativo */}
         <div className="absolute -bottom-10 right-0 opacity-10">
           <svg width="300" height="300" viewBox="0 0 24 24" fill={colors.green}>
@@ -432,7 +542,7 @@ export default function BlogPage() {
                 <img 
                   src="/images/logo/magnificencia-green-full-logo.png" 
                   alt="MagnifiGreen Logo" 
-                  className="h-10 mr-2"
+                  className="footer-logo mr-2"
                 />
                 <div>
                   <h3 className="text-xl font-semibold gradient-text">MAGNIFIGREEN</h3>

@@ -10,6 +10,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
 
+  // Forçar atualização do título
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
+
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getSession();
@@ -99,7 +104,7 @@ export default function Dashboard() {
       </div>
 
       {/* Cards de conteúdo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
         {/* Card Estude Aqui */}
         <Link href="/dashboard/estudos" 
           className="group rounded-2xl overflow-hidden backdrop-blur-sm border border-opacity-40 border-green-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-green-900/20 hover:border-green-500/60 hover:translate-y-[-5px] relative"

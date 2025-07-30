@@ -13,6 +13,7 @@ import theme from '@/styles/theme';
 // Interfaces
 interface Cultivo {
   id: string;
+  user_id: string;
   titulo: string;
   genetica: string;
   ambiente: string;
@@ -78,14 +79,21 @@ export default function CultivoPage() {
   const router = useRouter();
   const { setViewingItemId } = useDashboardState();
   
+  // Forçar atualização do título
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
+  
+  // Estados para gerenciar cultivos
   const [cultivos, setCultivos] = useState<Cultivo[]>([]);
-  const [activeTab, setActiveTab] = usePageState<'cultivos' | 'novo' | 'visualizar' | 'visualizar-registro'>('cultivo_activeTab', 'cultivos');
-  const [viewingCultivo, setViewingCultivo] = usePageState<Cultivo | null>('cultivo_viewingCultivo', null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'cultivos' | 'novo' | 'visualizar' | 'visualizar-registro'>('cultivos');
+  const [editingCultivo, setEditingCultivo] = useState<Cultivo | null>(null);
+  const [viewingCultivo, setViewingCultivo] = useState<Cultivo | null>(null);
+  const [viewingRegistro, setViewingRegistro] = useState<Registro | null>(null);
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [fotos, setFotos] = useState<Foto[]>([]);
-  const [viewingRegistro, setViewingRegistro] = usePageState<Registro | null>('cultivo_viewingRegistro', null);
   
   // Estados para o formulário de novo cultivo
   const [titulo, setTitulo] = usePageState<string>('cultivo_titulo', '');
@@ -96,10 +104,9 @@ export default function CultivoPage() {
   const [sistema, setSistema] = usePageState<string>('cultivo_sistema', '');
   const [dataInicio, setDataInicio] = usePageState<string>('cultivo_dataInicio', '');
   const [observacoes, setObservacoes] = usePageState<string>('cultivo_observacoes', '');
-  const [editingCultivo, setEditingCultivo] = usePageState<Cultivo | null>('cultivo_editingCultivo', null);
   
   // Modal
-  const [showModal, setShowModal] = usePageState<boolean>('cultivo_showModal', false);
+  const [showModal, setShowModal] = useState<boolean>(false);
   const [modalType, setModalType] = usePageState<ModalType>('cultivo_modalType', 'registro');
   
   // Estados para o formulário de registro
@@ -121,13 +128,53 @@ export default function CultivoPage() {
   const [registroProdutos, setRegistroProdutos] = usePageState<{nome: string, fabricante: string, categoria: string, dosagem: string}[]>('cultivo_registroProdutos', []);
   const [registroFotos, setRegistroFotos] = usePageState<Foto[]>('cultivo_registroFotos', []);
   
+  // Estados para o wizard de registro
+  const [currentStep, setCurrentStep] = usePageState<number>('cultivo_currentStep', 1);
+  const [completedSteps, setCompletedSteps] = usePageState<number[]>('cultivo_completedSteps', []);
+  
+  const totalSteps = 7;
+  
   // Estado para controlar o carregamento de imagens
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
   useEffect(() => {
     fetchCultivos();
   }, [user]);
+
+  // Limpar dados do localStorage quando a página carregar para evitar dados persistentes indesejados
+  useEffect(() => {
+    // Sempre garantir que a página comece na aba de cultivos
+    setActiveTab('cultivos');
+    setViewingCultivo(null);
+    setViewingRegistro(null);
+    setShowModal(false);
+    
+    // Limpar dados de registro que podem estar persistindo
+    localStorage.removeItem('cultivo_registroFase');
+    localStorage.removeItem('cultivo_registroSemana');
+    localStorage.removeItem('cultivo_registroAltura');
+    localStorage.removeItem('cultivo_registroPh');
+    localStorage.removeItem('cultivo_registroEc');
+    localStorage.removeItem('cultivo_registroTemperatura');
+    localStorage.removeItem('cultivo_registroUmidade');
+    localStorage.removeItem('cultivo_registroVpd');
+    localStorage.removeItem('cultivo_registroHorasLuz');
+    localStorage.removeItem('cultivo_registroTempSolucao');
+    localStorage.removeItem('cultivo_registroVolumeReservatorio');
+    localStorage.removeItem('cultivo_registroAreaCultivo');
+    localStorage.removeItem('cultivo_registroAroma');
+    localStorage.removeItem('cultivo_registroTecnicas');
+    localStorage.removeItem('cultivo_registroObservacoes');
+    localStorage.removeItem('cultivo_registroProdutos');
+    localStorage.removeItem('cultivo_registroFotos');
+    localStorage.removeItem('cultivo_currentStep');
+    localStorage.removeItem('cultivo_completedSteps');
+    localStorage.removeItem('cultivo_showModal');
+    localStorage.removeItem('cultivo_modalType');
+  }, []);
   
   useEffect(() => {
     if (viewingCultivo) {
@@ -160,10 +207,17 @@ export default function CultivoPage() {
       if (!user) return;
       
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('cultivos')
         .select('*')
         .order('data_criacao', { ascending: false });
+      
+      // Se não for admin, filtrar apenas os cultivos do usuário
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       setCultivos(data || []);
@@ -246,31 +300,34 @@ export default function CultivoPage() {
           .from('cultivos')
           .update(cultivoData)
           .eq('id', editingCultivo.id);
-        
         if (error) throw error;
-        
-        setCultivos(cultivos.map(c => 
+        setCultivos(cultivos.map(c =>
           c.id === editingCultivo.id ? { ...c, ...cultivoData } as Cultivo : c
         ));
+        alert('Cultivo atualizado com sucesso!');
       } else {
         // Criar novo cultivo
         const { data, error } = await supabase
           .from('cultivos')
           .insert(cultivoData)
           .select();
-        
         if (error) throw error;
-        
         if (data) {
           setCultivos([data[0], ...cultivos]);
         }
+        alert('Cultivo criado com sucesso!');
       }
-      
       // Limpar formulário e voltar para lista
-      resetForm();
-      handleVoltarParaLista();
     } catch (error) {
+      // Atualização: log detalhado do erro
       console.error('Erro ao salvar cultivo:', error);
+      if (error && typeof error === 'object') {
+        try {
+          console.error('Detalhes do erro:', JSON.stringify(error, null, 2));
+        } catch (e) {
+          console.error('Erro ao serializar o erro:', e);
+        }
+      }
       alert('Ocorreu um erro ao salvar o cultivo. Tente novamente.');
     }
   };
@@ -361,6 +418,8 @@ export default function CultivoPage() {
     setRegistroObservacoes('');
     setRegistroProdutos([]);
     setRegistroFotos([]);
+    setCurrentStep(1);
+    setCompletedSteps([]);
   };
   
   const handleRegistroSubmit = async (e: React.FormEvent) => {
@@ -370,6 +429,25 @@ export default function CultivoPage() {
     
     try {
       console.log('Iniciando salvamento de registro...');
+      
+      // Verificar se já existe um registro para esta semana
+      const { data: existingRegistro, error: checkError } = await supabase
+        .from('cultivo_registros')
+        .select('id')
+        .eq('cultivo_id', viewingCultivo.id)
+        .eq('semana', registroSemana)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Erro ao verificar registro existente:', checkError);
+        throw checkError;
+      }
+      
+      if (existingRegistro) {
+        alert('Já existe um registro para a semana ' + registroSemana + '. Por favor, escolha uma semana diferente.');
+        return;
+      }
+      
       // Dados básicos do registro
       const registroData = {
         cultivo_id: viewingCultivo.id,
@@ -392,13 +470,10 @@ export default function CultivoPage() {
       
       console.log('Dados do registro a serem salvos:', registroData);
       
-      // Inserir registro
+      // Inserir registro usando insert
       const { data, error } = await supabase
         .from('cultivo_registros')
-        .upsert(registroData, { 
-          onConflict: 'cultivo_id,semana',
-          ignoreDuplicates: false 
-        })
+        .insert(registroData)
         .select();
       
       if (error) {
@@ -437,7 +512,7 @@ export default function CultivoPage() {
           console.log('Salvando fotos relacionadas:', registroFotos.length);
           const fotosData = registroFotos.map((foto, index) => ({
             registro_id: novoRegistro.id,
-            url_imagem: foto.url, // Corrigido: usar foto.url em vez de foto.url_imagem
+            url_imagem: foto.url,
             descricao: foto.descricao,
             ordem: index
           }));
@@ -452,6 +527,8 @@ export default function CultivoPage() {
         }
         
         resetRegistroForm();
+        setCurrentStep(1);
+        setCompletedSteps([]);
         setShowModal(false);
         
         // Recarregar os registros para atualizar a lista
@@ -461,13 +538,15 @@ export default function CultivoPage() {
         
         alert('Registro adicionado com sucesso!');
       } else {
-        console.error('Registro salvo, mas nenhum dado retornado');
-        alert('Registro salvo, mas houve um problema ao recuperar os dados. Verifique se foi salvo corretamente.');
+        throw new Error('Nenhum registro foi retornado após a inserção');
       }
     } catch (error: any) {
       console.error('Erro ao salvar registro:', error);
-      console.error('Detalhes do erro:', error?.message, error?.details, error?.code);
-      alert(`Ocorreu um erro ao salvar o registro: ${error?.message || 'Erro desconhecido'}. Tente novamente.`);
+      if (error.message && error.message.includes('duplicate key')) {
+        alert('Já existe um registro para esta semana. Por favor, escolha uma semana diferente.');
+      } else {
+        alert('Erro ao salvar registro. Tente novamente.');
+      }
     }
   };
   
@@ -678,6 +757,100 @@ export default function CultivoPage() {
     novoRegistroFotos.splice(index, 1);
     setRegistroFotos(novoRegistroFotos);
   }
+
+  // Funções helper para o wizard
+  const getStepTitle = (step: number): string => {
+    const titles = {
+      1: 'Informações Básicas',
+      2: 'Crescimento',
+      3: 'Ambiente',
+      4: 'Solução Nutritiva',
+      5: 'Técnicas & Observações',
+      6: 'Fotos',
+      7: 'Produtos'
+    };
+    return titles[step as keyof typeof titles] || '';
+  };
+
+  const getStepIcon = (step: number): JSX.Element => {
+    const icons = {
+      1: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      2: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4" />
+        </svg>
+      ),
+      3: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+        </svg>
+      ),
+      4: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+        </svg>
+      ),
+      5: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+      6: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      7: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      )
+    };
+    return icons[step as keyof typeof icons] || icons[1];
+  };
+
+  // Funções de navegação do wizard
+  const nextStep = () => {
+    if (currentStep < totalSteps) {
+      if (!completedSteps.includes(currentStep)) {
+        setCompletedSteps([...completedSteps, currentStep]);
+      }
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const goToStep = (step: number) => {
+    if (step <= completedSteps.length + 1 && step >= 1) {
+      setCurrentStep(step);
+    }
+  };
+
+  const validateCurrentStep = (): boolean => {
+    // Apenas a Etapa 1 é obrigatória (fase e semana)
+    if (currentStep === 1) {
+      return registroFase !== '' && registroSemana > 0;
+    }
+    // Outras etapas são opcionais
+    return true;
+  };
+  
+  // Banner de sucesso temporário
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
   
   if (loading) {
     return (
@@ -689,7 +862,7 @@ export default function CultivoPage() {
   }
   
   return (
-    <div className="relative">
+    <div className="relative pb-24">
       {/* Fundo estilizado com padrão de folhas */}
       <div 
         className="absolute inset-0 z-0 opacity-5 pointer-events-none" 
@@ -713,10 +886,10 @@ export default function CultivoPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-7xl mx-auto p-4 md:p-8 py-6 md:py-10">
         {/* Cabeçalho com estilo Maia/Green */}
         <div 
-          className="mb-10 relative overflow-hidden rounded-xl p-8"
+          className="mb-6 md:mb-10 relative overflow-hidden rounded-xl p-4 md:p-8"
           style={{
             background: `linear-gradient(135deg, ${theme.colors.primary}90, ${theme.colors.accent}70)`,
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
@@ -732,10 +905,10 @@ export default function CultivoPage() {
             }}
           />
           
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 
-                className="text-3xl md:text-4xl font-bold mb-2"
+                className="text-2xl md:text-3xl xl:text-4xl font-bold mb-2"
                 style={{ 
       color: '#fff',
                   textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
@@ -744,7 +917,7 @@ export default function CultivoPage() {
                 Meu Cultivo
               </h1>
               <p 
-                className="text-lg"
+                className="text-base md:text-lg"
                 style={{ 
                   color: 'rgba(255, 255, 255, 0.9)',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
@@ -850,33 +1023,33 @@ export default function CultivoPage() {
       {activeTab === 'cultivos' && (
         <div>
           {cultivos.length === 0 ? (
-              <div className="text-center py-16 rounded-xl overflow-hidden" 
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
-                }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-gray-600 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="text-center py-16 rounded-xl overflow-hidden flex flex-col items-center justify-center" 
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
+              }}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-gray-600 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
               </svg>
-                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum cultivo cadastrado</h2>
-                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>Comece adicionando seu primeiro cultivo para acompanhar seu progresso.</p>
+              <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum cultivo cadastrado</h2>
+              <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>Comece adicionando seu primeiro cultivo para acompanhar seu progresso.</p>
               <button
                 onClick={() => setActiveTab('novo')}
-                  className="px-6 py-3 rounded-full transition-all transform hover:scale-105"
+                className="px-6 py-3 rounded-full transition-all transform hover:scale-105 mx-auto"
                 style={{ 
-                    background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
-                    color: 'black',
-                    fontWeight: 'bold',
-                    boxShadow: '0 4px 15px rgba(127, 219, 63, 0.4)'
+                  background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
+                  color: 'black',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 15px rgba(127, 219, 63, 0.4)'
                 }}
               >
                 Iniciar meu primeiro cultivo
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 px-4 md:px-0">
               {cultivos.map(cultivo => (
                 <div 
                   key={cultivo.id} 
@@ -888,7 +1061,7 @@ export default function CultivoPage() {
                       boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
                     }}
                   >
-                    <div className="h-40 relative">
+                    <div className="h-32 md:h-40 relative">
                       <div className="absolute inset-0" 
                         style={{
                           background: `linear-gradient(135deg, ${theme.colors.primary}70, ${theme.colors.accent}70)`
@@ -901,9 +1074,9 @@ export default function CultivoPage() {
                         backgroundRepeat: "repeat"
                       }}
                       />
-                      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent">
+                      <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 bg-gradient-to-t from-black to-transparent">
                       <div className="flex justify-between items-end">
-                          <h3 className="text-xl font-bold text-white truncate">{cultivo.titulo}</h3>
+                          <h3 className="text-lg md:text-xl font-bold text-white truncate">{cultivo.titulo}</h3>
                         <span 
                             className="px-3 py-1.5 rounded-full text-xs font-medium"
                             style={{ 
@@ -929,11 +1102,11 @@ export default function CultivoPage() {
                     </div>
                   </div>
                   
-                    <div className="p-5">
-                      <div className="grid grid-cols-2 gap-4 mb-5">
+                    <div className="p-3 md:p-5">
+                      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-5">
                       <div>
                           <p className="text-xs" style={{ color: theme.colors.textSecondary }}>Genética</p>
-                          <p className="text-sm font-medium" style={{ color: theme.colors.textPrimary }}>{cultivo.genetica}</p>
+                          <p className="text-sm font-medium truncate" style={{ color: theme.colors.textPrimary }}>{cultivo.genetica}</p>
                       </div>
                       <div>
                           <p className="text-xs" style={{ color: theme.colors.textSecondary }}>Ambiente</p>
@@ -945,11 +1118,11 @@ export default function CultivoPage() {
                       </div>
                       <div>
                           <p className="text-xs" style={{ color: theme.colors.textSecondary }}>Sistema</p>
-                          <p className="text-sm font-medium capitalize" style={{ color: theme.colors.textPrimary }}>{cultivo.sistema || '-'}</p>
+                          <p className="text-sm font-medium capitalize truncate" style={{ color: theme.colors.textPrimary }}>{cultivo.sistema || '-'}</p>
                       </div>
                     </div>
                     
-                    <div className="mt-4 flex justify-between">
+                    <div className="mt-4 flex flex-col md:flex-row justify-between gap-3 md:gap-0">
                       <button
                         onClick={() => handleViewCultivo(cultivo)}
                           className="px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105"
@@ -959,34 +1132,40 @@ export default function CultivoPage() {
                             boxShadow: '0 2px 10px rgba(127, 219, 63, 0.3)'
                         }}
                       >
-                        Ver Detalhes
+                        <span className="md:hidden">Ver</span>
+                        <span className="hidden md:inline">Ver Detalhes</span>
                       </button>
                       
-                      <div className="space-x-2">
-                        <button
-                          onClick={() => handleEdit(cultivo)}
-                            className="p-2 rounded-full"
-                            style={{ 
-                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                              color: '#93c5fd'
-                            }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cultivo.id)}
-                            className="p-2 rounded-full"
-                            style={{ 
-                              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                              color: '#fca5a5'
-                            }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                        </button>
+                      <div className="flex md:space-x-2 gap-2 md:gap-0 w-full md:w-auto">
+                        {/* Botões de ação apenas para o proprietário ou admin */}
+                        {(isAdmin || (user && cultivo.user_id === user.id)) && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(cultivo)}
+                              className="flex-1 md:flex-none p-2 rounded-full transition-all"
+                              style={{ 
+                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                color: '#93c5fd'
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(cultivo.id)}
+                              className="flex-1 md:flex-none p-2 rounded-full transition-all"
+                              style={{ 
+                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                color: '#fca5a5'
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -999,21 +1178,21 @@ export default function CultivoPage() {
       
       {/* Formulário de novo/editar cultivo */}
       {activeTab === 'novo' && (
-          <div className="rounded-xl overflow-hidden" 
+          <div className="rounded-xl overflow-hidden mx-4 md:mx-0" 
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
             }}>
-            <div className="p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-              <h2 className="text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>
+            <div className="p-4 md:p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <h2 className="text-xl md:text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>
             {editingCultivo ? 'Editar Cultivo' : 'Novo Cultivo'}
           </h2>
             </div>
           
-            <form onSubmit={handleSubmit} className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <form onSubmit={handleSubmit} className="p-4 md:p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-6">
               {/* Título */}
               <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
@@ -1177,14 +1356,14 @@ export default function CultivoPage() {
             </div>
             
             {/* Botões */}
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col md:flex-row justify-end gap-3 md:space-x-3 md:gap-0">
               <button
                 type="button"
                 onClick={() => {
                   resetForm();
                   setActiveTab('cultivos');
                 }}
-                  className="px-4 py-2 rounded-full shadow-sm text-sm font-medium transition-all"
+                  className="w-full md:w-auto px-4 py-3 md:py-2 rounded-full shadow-sm text-sm font-medium transition-all order-2 md:order-1"
                 style={{ 
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     color: theme.colors.textPrimary
@@ -1194,7 +1373,7 @@ export default function CultivoPage() {
               </button>
               <button
                 type="submit"
-                  className="px-5 py-2 rounded-full shadow-sm text-sm font-medium transition-all transform hover:scale-105"
+                  className="w-full md:w-auto px-5 py-3 md:py-2 rounded-full shadow-sm text-sm font-medium transition-all transform hover:scale-105 order-1 md:order-2"
                 style={{ 
                     background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                     color: 'black',
@@ -1202,7 +1381,8 @@ export default function CultivoPage() {
                   boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
                 }}
               >
-                {editingCultivo ? 'Atualizar Cultivo' : 'Criar Cultivo'}
+                <span className="md:hidden">{editingCultivo ? 'Atualizar' : 'Criar'}</span>
+                <span className="hidden md:inline">{editingCultivo ? 'Atualizar Cultivo' : 'Criar Cultivo'}</span>
               </button>
             </div>
           </form>
@@ -1211,43 +1391,36 @@ export default function CultivoPage() {
       
       {/* Visualização do cultivo */}
       {activeTab === 'visualizar' && viewingCultivo && (
-          <div className="rounded-xl overflow-hidden" 
+          <div className="rounded-xl overflow-hidden mx-4 md:mx-0" 
               style={{
               background: 'rgba(255, 255, 255, 0.05)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
             }}>
-            <div className="relative p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-              <div className="absolute inset-0 opacity-10"
-                style={{
-                  backgroundImage: `url('/images/leaf-pattern-bg.svg')`,
-                  backgroundSize: '120px',
-                  backgroundRepeat: 'repeat',
-                  background: `linear-gradient(135deg, ${theme.colors.primary}40, ${theme.colors.accent}40)`
-                }}
-              />
-            <div className="relative z-10">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>{viewingCultivo.titulo}</h2>
-                    <div className="flex flex-wrap items-center mt-2">
-                      <span className="flex items-center mr-4" style={{ color: theme.colors.textSecondary }}>
+            <div className="p-4 md:p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>
+                    {viewingCultivo.titulo}
+                  </h2>
+                  <div className="flex flex-wrap items-center mt-2">
+                    <span className="flex items-center mr-4" style={{ color: theme.colors.textSecondary }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {formatDate(viewingCultivo.data_inicio)}
+                    </span>
+                    {viewingCultivo.data_fim && (
+                      <span className="flex items-center" style={{ color: theme.colors.textSecondary }}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        {formatDate(viewingCultivo.data_inicio)}
+                        {formatDate(viewingCultivo.data_fim)}
                       </span>
-                      {viewingCultivo.data_fim && (
-                        <span className="flex items-center" style={{ color: theme.colors.textSecondary }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {formatDate(viewingCultivo.data_fim)}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
+                </div>
                 <span 
                     className="px-3 py-1.5 rounded-full text-xs font-medium mt-2 md:mt-0"
                     style={{ 
@@ -1271,11 +1444,10 @@ export default function CultivoPage() {
                 </span>
               </div>
             </div>
-          </div>
           
-          <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="rounded-lg p-4"
+          <div className="p-4 md:p-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-6 md:mb-8">
+                <div className="rounded-lg p-3 md:p-5"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -1288,7 +1460,7 @@ export default function CultivoPage() {
                 </h3>
                   <p style={{ color: theme.colors.textPrimary }}>{viewingCultivo.genetica}</p>
               </div>
-                <div className="rounded-lg p-4"
+                <div className="rounded-lg p-3 md:p-5"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -1299,7 +1471,7 @@ export default function CultivoPage() {
                   </svg>
                   Ambiente
                 </h3>
-                  <p style={{ color: theme.colors.textPrimary }} className="capitalize">{viewingCultivo.ambiente}</p>
+                  <p className="capitalize" style={{ color: theme.colors.textPrimary }}>{viewingCultivo.ambiente}</p>
                 {viewingCultivo.iluminacao && (
                     <p className="mt-2 text-sm">
                       <span style={{ color: theme.colors.accent }}>Iluminação:</span> 
@@ -1307,7 +1479,7 @@ export default function CultivoPage() {
                   </p>
                 )}
               </div>
-                <div className="rounded-lg p-4"
+                <div className="rounded-lg p-3 md:p-5"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -1329,7 +1501,7 @@ export default function CultivoPage() {
             </div>
             
             {viewingCultivo.observacoes && (
-                <div className="mb-8 rounded-lg p-5"
+                <div className="mb-6 md:mb-8 rounded-lg p-3 md:p-5"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -1344,8 +1516,8 @@ export default function CultivoPage() {
               </div>
             )}
             
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
+            <div className="mb-6 md:mb-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                   <h3 className="font-semibold text-lg flex items-center" style={{ color: theme.colors.primary }}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -1354,10 +1526,11 @@ export default function CultivoPage() {
                   </h3>
                 <button
                   onClick={() => {
+                    resetRegistroForm();
                     setModalType('registro');
                     setShowModal(true);
                   }}
-                    className="px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105"
+                    className="w-full md:w-auto px-4 py-3 md:py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105"
                   style={{ 
                       background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                       color: 'black',
@@ -1365,11 +1538,12 @@ export default function CultivoPage() {
                       boxShadow: '0 2px 10px rgba(127, 219, 63, 0.3)'
                   }}
                 >
-                    <div className="flex items-center">
+                    <div className="flex items-center justify-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                       </svg>
-                  Adicionar Registro
+                  <span className="md:hidden">Novo Registro</span>
+                  <span className="hidden md:inline">Adicionar Registro</span>
                     </div>
                 </button>
               </div>
@@ -1402,15 +1576,15 @@ export default function CultivoPage() {
                         {registros.map((registro) => (
                             <tr key={registro.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
                               className="hover:bg-white hover:bg-opacity-5 transition-all">
-                              <td className="px-4 py-3 text-sm" style={{ color: theme.colors.textPrimary }}>Semana {registro.semana}</td>
-                              <td className="px-4 py-3 text-sm capitalize" style={{ color: theme.colors.textPrimary }}>{registro.fase}</td>
-                              <td className="px-4 py-3 text-sm" style={{ color: theme.colors.textPrimary }}>{registro.altura ? `${registro.altura} cm` : '-'}</td>
-                              <td className="px-4 py-3 text-sm" style={{ color: theme.colors.textPrimary }}>{registro.ph || '-'}</td>
-                              <td className="px-4 py-3 text-sm" style={{ color: theme.colors.textPrimary }}>{registro.ec || '-'}</td>
-                              <td className="px-4 py-3 text-sm" style={{ color: theme.colors.textPrimary }}>{registro.temperatura ? `${registro.temperatura}°C` : '-'}</td>
-                            <td className="px-4 py-3 text-sm">
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>Sem. {registro.semana}</td>
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm capitalize whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>{registro.fase}</td>
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>{registro.altura ? `${registro.altura} cm` : '-'}</td>
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>{registro.ph || '-'}</td>
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>{registro.ec || '-'}</td>
+                              <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap" style={{ color: theme.colors.textPrimary }}>{registro.temperatura ? `${registro.temperatura}°C` : '-'}</td>
+                            <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm">
                               <button
-                                  className="px-3 py-1.5 rounded-full text-xs font-medium"
+                                  className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
                                   style={{ 
                                     backgroundColor: 'rgba(59, 130, 246, 0.15)',
                                     color: '#93c5fd'
@@ -1420,7 +1594,8 @@ export default function CultivoPage() {
                                   setActiveTab('visualizar-registro');
                                 }}
                               >
-                                  Ver Detalhes
+                                  <span className="sm:hidden">Ver</span>
+                                  <span className="hidden sm:inline">Ver Detalhes</span>
                               </button>
                             </td>
                           </tr>
@@ -1432,35 +1607,37 @@ export default function CultivoPage() {
               </div>
             </div>
             
-              <div className="flex justify-end space-x-3 mt-8">
+              <div className="flex flex-col md:flex-row justify-end gap-3 md:space-x-3 md:gap-0 mt-6 md:mt-8">
               <button
                 onClick={() => handleEdit(viewingCultivo)}
-                  className="px-4 py-2 rounded-full shadow-sm text-sm font-medium"
+                  className="w-full md:w-auto px-4 py-3 md:py-2 rounded-full shadow-sm text-sm font-medium order-2 md:order-1"
                   style={{ 
                     backgroundColor: 'rgba(59, 130, 246, 0.15)',
                     color: '#93c5fd'
                   }}
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                     </svg>
-                Editar Cultivo
+                <span className="md:hidden">Editar</span>
+                <span className="hidden md:inline">Editar Cultivo</span>
                   </div>
               </button>
               <button
                 onClick={handleVoltarParaLista}
-                  className="px-4 py-2 rounded-full shadow-sm text-sm font-medium"
+                  className="w-full md:w-auto px-4 py-3 md:py-2 rounded-full shadow-sm text-sm font-medium order-1 md:order-2"
               style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     color: theme.colors.textPrimary
                   }}
                 >
-                    <div className="flex items-center">
+                    <div className="flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                       </svg>
-                Voltar para Lista
+                <span className="md:hidden">Voltar</span>
+                <span className="hidden md:inline">Voltar para Lista</span>
                     </div>
               </button>
             </div>
@@ -1470,14 +1647,14 @@ export default function CultivoPage() {
       
       {/* Visualização do detalhe do registro */}
       {activeTab === 'visualizar-registro' && viewingRegistro && viewingCultivo && (
-        <div className="rounded-xl overflow-hidden" 
+        <div className="rounded-xl overflow-hidden mx-4 md:mx-0" 
               style={{
             background: 'rgba(255, 255, 255, 0.05)',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
           }}>
-          <div className="relative p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+          <div className="relative p-4 md:p-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
             <div className="absolute inset-0 opacity-10"
               style={{
                 backgroundImage: `url('/images/leaf-pattern-bg.svg')`,
@@ -1487,9 +1664,9 @@ export default function CultivoPage() {
               }}
             />
             <div className="relative z-10">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>
+                  <h2 className="text-xl md:text-2xl font-bold" style={{ color: theme.colors.textPrimary }}>
                     Semana {viewingRegistro.semana} - {viewingCultivo.titulo}
                   </h2>
                   <p className="text-sm mt-1" style={{ color: theme.colors.textSecondary }}>
@@ -1778,332 +1955,465 @@ export default function CultivoPage() {
       
         {/* Modal para adicionar registros/fotos/produtos */}
       {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-            <div className="rounded-xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center z-50 backdrop-blur-sm p-0" style={{ alignItems: 'center', paddingTop: '0', paddingBottom: '0' }}>
+            <div className="modal-fullscreen-mobile md:modal-fullscreen-mobile flex flex-col modal-container-mobile"
                     style={{ 
                 background: 'rgba(31, 41, 55, 0.95)',
                 backdropFilter: 'blur(12px)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)'
               }}>
-              <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-white">
+              <div className="modal-header-mobile p-4 md:p-6 flex-shrink-0">
+            <div className="flex justify-between items-center mb-4 md:mb-6">
+                  <h3 className="text-lg md:text-xl font-bold text-white leading-tight">
                     {modalType === 'registro' && 'Adicionar Registro Semanal'}
                     {modalType === 'produto' && 'Adicionar Produto'}
                     {modalType === 'foto' && 'Adicionar Foto'}
                   </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white"
+                className="touch-target-mobile text-gray-400 hover:text-white p-3 md:p-2 ml-2 rounded-full hover:bg-white hover:bg-opacity-10 transition-all min-w-[44px] min-h-[44px] md:min-w-auto md:min-h-auto flex items-center justify-center"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 md:h-5 md:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             
+            {/* Área de scroll para o conteúdo */}
+            <div className="modal-content-mobile flex-1 overflow-y-auto px-4 md:px-6 pb-4 md:pb-6">
                 {/* Conteúdo do modal para diferentes tipos */}
             {modalType === 'registro' && (
-              <form onSubmit={handleRegistroSubmit}>
-                    {/* Formulário básico de registro */}
-                    <div className="mb-4">
-                      <label htmlFor="fase" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                        Fase do Cultivo *
-                      </label>
-                      <select
-                        id="fase"
-                        value={registroFase}
-                        onChange={(e) => setRegistroFase(e.target.value as 'germinacao' | 'vegetativo' | 'floracao')}
-                        className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          color: theme.colors.textPrimary
-                        }}
-                        required
-                      >
-                        <option value="">Selecione a fase</option>
-                        <option value="germinacao">Germinação</option>
-                        <option value="vegetativo">Vegetativo</option>
-                        <option value="floracao">Floração</option>
-                      </select>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label htmlFor="semana" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                        Semana do Cultivo *
-                      </label>
-                      <input
-                        id="semana"
-                        type="number"
-                        min="1"
-                        value={registroSemana}
-                        onChange={(e) => setRegistroSemana(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          color: theme.colors.textPrimary
-                        }}
-                        required
-                      />
+              <div>
+                {/* Barra de Progresso restaurada */}
+                <div className="mb-4 md:mb-6">
+                  <div className="w-full bg-gray-700 rounded-full h-2 md:h-2">
+                    <div
+                      className="h-2 md:h-2 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(currentStep / totalSteps) * 100}%`,
+                        background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`
+                      }}
+                    />
+                  </div>
                 </div>
-                
-                    {/* Seção de Crescimento */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
-                      <h4 className="text-lg font-medium text-white mb-4">Crescimento da Planta</h4>
+                <form onSubmit={handleRegistroSubmit}>
+                  {/* Etapa 1: Informações Básicas */}
+                  {currentStep === 1 && (
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="text-green-500 mr-3">
+                          {getStepIcon(1)}
+                        </div>
+                        <h4 className="text-lg md:text-lg font-medium text-white">{getStepTitle(1)}</h4>
+                      </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                          <label htmlFor="altura" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                          Altura (cm)
-                        </label>
-                        <input
-                            id="altura"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                            value={registroAltura || ''}
-                          onChange={(e) => setRegistroAltura(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                        />
-                      </div>
-                    
-                      <div>
-                          <label htmlFor="aroma" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Aroma
-                        </label>
-                        <input
-                            id="aroma"
-                            type="text"
-                            value={registroAroma || ''}
-                            onChange={(e) => setRegistroAroma(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                            placeholder="Descreva o aroma percebido"
-                        />
-                      </div>
-                      </div>
-                    </div>
-
-                    {/* Seção de Ambiente */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
-                      <h4 className="text-lg font-medium text-white mb-4">Ambiente</h4>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                          <label htmlFor="temperatura" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Temperatura (°C)
-                      </label>
-                      <input
-                            id="temperatura"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                            value={registroTemperatura || ''}
-                            onChange={(e) => setRegistroTemperatura(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      <div className="p-4 rounded-lg text-center border-2 border-dashed border-gray-600"
                         style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                        }}
-                      />
-                    </div>
-                    
-                    <div>
-                          <label htmlFor="umidade" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Umidade (%)
-                      </label>
-                      <input
-                            id="umidade"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                            max="100"
-                            value={registroUmidade || ''}
-                            onChange={(e) => setRegistroUmidade(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                        }}
-                      />
-                    </div>
-                    
-                    <div>
-                          <label htmlFor="vpd" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            VPD (kPa)
-                      </label>
-                      <input
-                            id="vpd"
-                        type="number"
-                            step="0.01"
-                            min="0"
-                            value={registroVpd || ''}
-                            onChange={(e) => setRegistroVpd(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                        }}
-                      />
-                    </div>
-                    
-                    <div>
-                          <label htmlFor="horas_luz" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Horas de Luz
-                      </label>
-                      <input
-                            id="horas_luz"
-                        type="number"
-                            step="0.5"
-                        min="0"
-                            max="24"
-                            value={registroHorasLuz || ''}
-                            onChange={(e) => setRegistroHorasLuz(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                        }}
-                      />
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        <div className="space-y-3 max-w-md mx-auto">
+                          <div>
+                            <label htmlFor="fase" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Fase do Cultivo *
+                            </label>
+                            <select
+                              id="fase"
+                              value={registroFase}
+                              onChange={(e) => setRegistroFase(e.target.value as 'germinacao' | 'vegetativo' | 'floracao')}
+                              className="input-mobile w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm min-h-[40px]"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              required
+                            >
+                              <option value="">Selecione a fase</option>
+                              <option value="germinacao">Germinação</option>
+                              <option value="vegetativo">Vegetativo</option>
+                              <option value="floracao">Floração</option>
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="semana" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Semana do Cultivo *
+                            </label>
+                            <input
+                              id="semana"
+                              type="number"
+                              min="1"
+                              value={registroSemana}
+                              onChange={(e) => setRegistroSemana(parseInt(e.target.value))}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              required
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Seção de Solução */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
-                      <h4 className="text-lg font-medium text-white mb-4">Solução Nutritiva</h4>
+                  )}
+                
+                  {/* Etapa 2: Crescimento da Planta */}
+                  {currentStep === 2 && (
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="text-green-500 mr-3">
+                          {getStepIcon(2)}
+                        </div>
+                        <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(2)}</h4>
+                      </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                          <label htmlFor="ph" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            pH
-                        </label>
-                        <input
-                            id="ph"
-                          type="number"
-                            step="0.1"
-                          min="0"
-                            max="14"
-                            value={registroPh || ''}
-                            onChange={(e) => setRegistroPh(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                        />
-                      </div>
-                    
-                      <div>
-                          <label htmlFor="ec" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            EC (mS/cm)
-                        </label>
-                        <input
-                            id="ec"
-                          type="number"
-                          step="0.1"
-                            min="0"
-                            value={registroEc || ''}
-                            onChange={(e) => setRegistroEc(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                        />
-                      </div>
-                    
-                      <div>
-                          <label htmlFor="temperatura_solucao" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Temperatura Solução (°C)
-                        </label>
-                        <input
-                            id="temperatura_solucao"
-                          type="number"
-                            step="0.1"
-                          min="0"
-                            value={registroTempSolucao || ''}
-                            onChange={(e) => setRegistroTempSolucao(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                        />
-                      </div>
-                    
-                      <div>
-                          <label htmlFor="volume_reservatorio" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                            Volume Reservatório (L)
-                        </label>
-                        <input
-                            id="volume_reservatorio"
-                          type="number"
-                            step="0.1"
-                          min="0"
-                            value={registroVolumeReservatorio || ''}
-                            onChange={(e) => setRegistroVolumeReservatorio(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                              backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                              border: '1px solid rgba(255, 255, 255, 0.1)',
-                              color: theme.colors.textPrimary
-                          }}
-                        />
-                      </div>
+                      <div className="p-4 rounded-lg border-2 border-dashed border-gray-600"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label htmlFor="altura" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Altura (cm)
+                            </label>
+                            <input
+                              id="altura"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroAltura || ''}
+                              onChange={(e) => setRegistroAltura(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Ex: 45.5"
+                            />
+                          </div>
+                        
+                          <div>
+                            <label htmlFor="aroma" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Aroma
+                            </label>
+                            <input
+                              id="aroma"
+                              type="text"
+                              value={registroAroma || ''}
+                              onChange={(e) => setRegistroAroma(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Descreva o aroma"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Seção de Técnicas Aplicadas */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
-                      <h4 className="text-lg font-medium text-white mb-4">Técnicas Aplicadas</h4>
+                  {/* Etapa 3: Ambiente */}
+                  {currentStep === 3 && (
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="text-green-500 mr-3">
+                          {getStepIcon(3)}
+                        </div>
+                        <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(3)}</h4>
+                      </div>
                       
-                      <div>
-                        <label htmlFor="tecnicas_aplicadas" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                          Técnicas de Cultivo
-                        </label>
-                        <textarea
-                          id="tecnicas_aplicadas"
-                          rows={3}
-                          value={registroTecnicas || ''}
-                          onChange={(e) => setRegistroTecnicas(e.target.value)}
-                          className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          style={{ 
-                            backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            color: theme.colors.textPrimary
-                          }}
-                          placeholder="Descreva as técnicas aplicadas nesta semana (poda, defoliação, treinamento, etc.)"
-                        />
+                      <div className="p-4 rounded-lg border-2 border-dashed border-gray-600"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label htmlFor="temperatura" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Temperatura (°C)
+                            </label>
+                            <input
+                              id="temperatura"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroTemperatura || ''}
+                              onChange={(e) => setRegistroTemperatura(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Ex: 24.5"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="umidade" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Umidade (%)
+                            </label>
+                            <input
+                              id="umidade"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={registroUmidade || ''}
+                              onChange={(e) => setRegistroUmidade(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Ex: 65"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="vpd" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              VPD (kPa)
+                            </label>
+                            <input
+                              id="vpd"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={registroVpd || ''}
+                              onChange={(e) => setRegistroVpd(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Ex: 1.2"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="horas_luz" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Horas de Luz
+                            </label>
+                            <input
+                              id="horas_luz"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="24"
+                              value={registroHorasLuz || ''}
+                              onChange={(e) => setRegistroHorasLuz(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Ex: 18"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Seção de Fotos do Cultivo */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
+                  {/* Etapa 4: Solução Nutritiva */}
+                  {currentStep === 4 && (
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="text-green-500 mr-3">
+                          {getStepIcon(4)}
+                        </div>
+                        <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(4)}</h4>
+                      </div>
+                      
+                      <div className="p-4 rounded-lg border-2 border-dashed border-gray-600"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label htmlFor="ph" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              pH
+                            </label>
+                            <input
+                              id="ph"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="14"
+                              value={registroPh || ''}
+                              onChange={(e) => setRegistroPh(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="ec" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              EC (mS/cm)
+                            </label>
+                            <input
+                              id="ec"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroEc || ''}
+                              onChange={(e) => setRegistroEc(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="temp_solucao" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Temp. Solução (°C)
+                            </label>
+                            <input
+                              id="temp_solucao"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroTempSolucao || ''}
+                              onChange={(e) => setRegistroTempSolucao(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="volume_reservatorio" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Volume (L)
+                            </label>
+                            <input
+                              id="volume_reservatorio"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroVolumeReservatorio || ''}
+                              onChange={(e) => setRegistroVolumeReservatorio(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                            />
+                          </div>
+                          
+                          <div className="col-span-2">
+                            <label htmlFor="area_cultivo" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Área de Cultivo (m²)
+                            </label>
+                            <input
+                              id="area_cultivo"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={registroAreaCultivo || ''}
+                              onChange={(e) => setRegistroAreaCultivo(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Etapa 5: Técnicas & Observações */}
+                  {currentStep === 5 && (
+                    <div className="space-y-4 p-4 md:p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="text-green-500 mr-3">
+                          {getStepIcon(5)}
+                        </div>
+                        <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(5)}</h4>
+                      </div>
+                      
+                      <div className="p-4 rounded-lg border-2 border-dashed border-gray-600"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor="tecnicas_aplicadas" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Técnicas de Cultivo
+                            </label>
+                            <textarea
+                              id="tecnicas_aplicadas"
+                              rows={2}
+                              value={registroTecnicas || ''}
+                              onChange={(e) => setRegistroTecnicas(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm textarea-mobile"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Descreva as técnicas aplicadas..."
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="observacoes" className="block text-xs font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                              Observações
+                            </label>
+                            <textarea
+                              id="observacoes"
+                              rows={2}
+                              value={registroObservacoes || ''}
+                              onChange={(e) => setRegistroObservacoes(e.target.value)}
+                              className="w-full px-2 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm observations-mobile"
+                              style={{ 
+                                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: theme.colors.textPrimary
+                              }}
+                              placeholder="Observações adicionais..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Etapa 6: Fotos */}
+                  {currentStep === 6 && (
+                    <div className="space-y-4 p-4 md:p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-medium text-white">Fotos do Cultivo</h4>
+                        <div className="flex items-center">
+                          <div className="text-green-500 mr-3">
+                            {getStepIcon(6)}
+                          </div>
+                          <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(6)}</h4>
+                        </div>
                         <label 
                           htmlFor="upload-foto"
-                          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all transform hover:scale-105 cursor-pointer"
+                          className="px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105 cursor-pointer"
                           style={{ 
                             background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                             color: 'black',
@@ -2115,7 +2425,7 @@ export default function CultivoPage() {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
                             </svg>
-                            Adicionar Foto
+                            Adicionar
                           </div>
                         </label>
                         <input
@@ -2129,12 +2439,15 @@ export default function CultivoPage() {
                       </div>
                       
                       {registroFotos.length === 0 ? (
-                        <div className="p-4 rounded-lg text-center mb-4"
+                        <div className="p-8 rounded-lg text-center border-2 border-dashed border-gray-600"
                           style={{ 
                             background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)'
                           }}>
-                          <p style={{ color: theme.colors.textSecondary }}>Nenhuma foto adicionada ainda. Clique em "Adicionar Foto" para incluir fotos do seu cultivo.</p>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p style={{ color: theme.colors.textSecondary }}>Nenhuma foto adicionada ainda.</p>
+                          <p className="text-sm mt-1" style={{ color: theme.colors.textSecondary }}>Clique em "Adicionar" para incluir fotos do seu cultivo.</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2144,7 +2457,7 @@ export default function CultivoPage() {
                                 background: 'rgba(255, 255, 255, 0.03)',
                                 border: '1px solid rgba(255, 255, 255, 0.05)'
                               }}>
-                              <div className="relative pt-[100%]"> {/* Aspect ratio 1:1 */}
+                              <div className="relative pt-[100%]">
                                 <img 
                                   src={foto.url || foto.url_imagem} 
                                   alt={`Foto ${index + 1}`}
@@ -2152,12 +2465,12 @@ export default function CultivoPage() {
                                 />
                               </div>
                               <div className="p-3">
-                        <input
-                          type="text"
+                                <input
+                                  type="text"
                                   value={foto.descricao}
                                   onChange={(e) => atualizarDescricaoFoto(index, e.target.value)}
                                   className="w-full px-2 py-1 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-2"
-                          style={{ 
+                                  style={{ 
                                     backgroundColor: 'rgba(255, 255, 255, 0.07)',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     color: theme.colors.textPrimary
@@ -2177,38 +2490,25 @@ export default function CultivoPage() {
                               </div>
                             </div>
                           ))}
-                      </div>
-                    )}
-                  </div>
-                    
-                    {/* Observações */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
-                      <label htmlFor="observacoes" className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                        Observações
-                      </label>
-                      <textarea
-                        id="observacoes"
-                        rows={3}
-                        value={registroObservacoes || ''}
-                        onChange={(e) => setRegistroObservacoes(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        style={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          color: theme.colors.textPrimary
-                        }}
-                        placeholder="Observações adicionais sobre esta semana de cultivo"
-                      />
-                </div>
-                
-                    {/* Seção de Produtos */}
-                    <div className="mt-8 border-t border-gray-700 pt-6">
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Etapa 7: Produtos */}
+                  {currentStep === 7 && (
+                    <div className="space-y-4 p-4 md:p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-medium text-white">Produtos Utilizados</h4>
-                    <button
-                      type="button"
-                      onClick={adicionarProduto}
-                          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all transform hover:scale-105"
+                        <div className="flex items-center">
+                          <div className="text-green-500 mr-3">
+                            {getStepIcon(7)}
+                          </div>
+                          <h4 className="text-lg sm:text-xl font-medium text-white">{getStepTitle(7)}</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={adicionarProduto}
+                          className="px-4 py-2 rounded-full text-sm font-medium transition-all transform hover:scale-105"
                           style={{ 
                             background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                             color: 'black',
@@ -2220,134 +2520,169 @@ export default function CultivoPage() {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                             </svg>
-                            Adicionar Produto
+                            Adicionar
                           </div>
-                    </button>
-                  </div>
-                  
-                  {registroProdutos.length === 0 ? (
-                        <div className="p-4 rounded-lg text-center mb-4"
-                          style={{ 
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)'
-                          }}>
-                          <p style={{ color: theme.colors.textSecondary }}>Nenhum produto adicionado ainda. Clique em "Adicionar Produto" para incluir produtos utilizados neste registro.</p>
-                        </div>
-                      ) : (
-                        registroProdutos.map((produto, index) => (
-                          <div key={index} className="mb-4 p-4 rounded-lg"
+                        </button>
+                      </div>
+                      
+                      <div className="p-6 rounded-lg border-2 border-dashed border-gray-600"
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.03)',
+                        }}>
+                        {registroProdutos.length === 0 ? (
+                          <div className="p-8 rounded-lg text-center border-2 border-dashed border-gray-600"
                             style={{ 
                               background: 'rgba(255, 255, 255, 0.03)',
-                              border: '1px solid rgba(255, 255, 255, 0.05)'
                             }}>
-                            <div className="flex justify-between mb-3">
-                              <h5 className="text-sm font-medium text-white">Produto {index + 1}</h5>
-                            <button
-                              type="button"
-                              onClick={() => removerProduto(index)}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </button>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                            <p style={{ color: theme.colors.textSecondary }}>Nenhum produto adicionado ainda.</p>
+                            <p className="text-sm mt-1" style={{ color: theme.colors.textSecondary }}>Clique em "Adicionar" para incluir produtos utilizados neste registro.</p>
                           </div>
-                          
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor={`produto-nome-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                                  Nome do Produto *
-                                </label>
-                              <input
-                                  id={`produto-nome-${index}`}
-                                type="text"
-                                value={produto.nome}
-                                onChange={(e) => atualizarProduto(index, 'nome', e.target.value)}
-                                  className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  style={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    color: theme.colors.textPrimary
-                                  }}
-                                required
-                              />
-                            </div>
-                              
-                            <div>
-                                <label htmlFor={`produto-fabricante-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                                  Fabricante
-                                </label>
-                              <input
-                                  id={`produto-fabricante-${index}`}
-                                type="text"
-                                  value={produto.fabricante || ''}
-                                onChange={(e) => atualizarProduto(index, 'fabricante', e.target.value)}
-                                  className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  style={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    color: theme.colors.textPrimary
-                                  }}
-                              />
-                            </div>
-                              
-                            <div>
-                                <label htmlFor={`produto-categoria-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                                  Categoria
-                                </label>
-                              <input
-                                  id={`produto-categoria-${index}`}
-                                type="text"
-                                  value={produto.categoria || ''}
-                                onChange={(e) => atualizarProduto(index, 'categoria', e.target.value)}
-                                  className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  style={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    color: theme.colors.textPrimary
-                                  }}
-                              />
-                            </div>
-                              
-                            <div>
-                                <label htmlFor={`produto-dosagem-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
-                                  Dosagem
-                                </label>
-                              <input
-                                  id={`produto-dosagem-${index}`}
-                                type="text"
-                                  value={produto.dosagem || ''}
-                                onChange={(e) => atualizarProduto(index, 'dosagem', e.target.value)}
-                                  className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    style={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    color: theme.colors.textPrimary
-                                  }}
-                                  placeholder="Ex: 5ml/L"
-                  />
-                </div>
-                </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {registroProdutos.map((produto, index) => (
+                              <div key={index} className="p-4 rounded-lg"
+                                style={{ 
+                                  background: 'rgba(255, 255, 255, 0.03)',
+                                  border: '1px solid rgba(255, 255, 255, 0.05)'
+                                }}>
+                                <div className="flex justify-between mb-3">
+                                  <h5 className="text-sm font-medium text-white">Produto {index + 1}</h5>
+                                  <button
+                                    type="button"
+                                    onClick={() => removerProduto(index)}
+                                    className="text-red-400 hover:text-red-300"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <label htmlFor={`produto-nome-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                                      Nome do Produto *
+                                    </label>
+                                    <input
+                                      id={`produto-nome-${index}`}
+                                      type="text"
+                                      value={produto.nome}
+                                      onChange={(e) => atualizarProduto(index, 'nome', e.target.value)}
+                                      className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      style={{ 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: theme.colors.textPrimary
+                                      }}
+                                      required
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <label htmlFor={`produto-dosagem-${index}`} className="block text-sm font-medium mb-1" style={{ color: theme.colors.textSecondary }}>
+                                      Dosagem
+                                    </label>
+                                    <input
+                                      id={`produto-dosagem-${index}`}
+                                      type="text"
+                                      value={produto.dosagem || ''}
+                                      onChange={(e) => atualizarProduto(index, 'dosagem', e.target.value)}
+                                      className="w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      style={{ 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: theme.colors.textPrimary
+                                      }}
+                                      placeholder="Ex: 5ml/L"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                        ))
                   )}
-                </div>
+
+                  {/* Seções removidas - agora estão nas etapas do wizard */}
                 
-                  <button
-                    type="submit"
-                      className="w-full mt-6 px-5 py-3 rounded-lg shadow-sm font-medium transition-all transform hover:scale-105"
-                    style={{ 
-                        background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
-                        color: 'black',
-                        fontWeight: 'bold',
-                      boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
-                    }}
-                  >
-                    Salvar Registro
-                  </button>
-              </form>
+                  {/* Botões de Navegação do Wizard */}
+                  <div className="modal-footer-mobile flex flex-col md:flex-row justify-between gap-3 md:gap-3 mt-6 md:mt-8 pt-4 md:pt-4 border-t border-gray-700">
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      disabled={currentStep === 1}
+                      className={`button-mobile w-full md:w-auto px-4 md:px-6 py-3 md:py-3 rounded-lg font-medium transition-all min-h-[44px] ${
+                        currentStep === 1 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:scale-105'
+                      }`}
+                      style={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: theme.colors.textPrimary,
+                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                      }}
+                    >
+                      <div className="flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-4 md:w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Anterior
+                      </div>
+                    </button>
+
+                    <div className="flex items-center justify-center text-sm text-gray-400 order-first md:order-none">
+                      Etapa {currentStep} de {totalSteps}
+                    </div>
+
+                    {currentStep < totalSteps ? (
+                      <button
+                        type="button"
+                        onClick={nextStep}
+                        className="button-mobile w-full md:w-auto px-4 md:px-6 py-3 md:py-3 rounded-lg font-medium transition-all transform hover:scale-105 min-h-[44px]"
+                        style={{ 
+                          background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
+                          color: 'black',
+                          fontWeight: 'bold',
+                          boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
+                        }}
+                      >
+                        <div className="flex items-center justify-center">
+                          Próximo
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-4 md:w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="button-mobile w-full md:w-auto px-4 md:px-6 py-3 md:py-3 rounded-lg font-medium transition-all transform hover:scale-105 min-h-[44px]"
+                        style={{ 
+                          background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
+                          color: 'black',
+                          fontWeight: 'bold',
+                          boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
+                        }}
+                      >
+                        <div className="flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-4 md:w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Salvar Registro
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                              </form>
+              </div>
             )}
               </div>
+            </div>
           </div>
         </div>
       )}

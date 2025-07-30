@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* CORREÇÕES CRÍTICAS PARA MOBILE */
+@media (max-width: 767px) {
+  * {
+    box-sizing: border-box !important;
+  }
+  
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Garantir que todos os containers respeitem a largura da tela */
+  .main-container,
+  div[class*="dashboard"],
+  div[class*="cultivo"],
+  div[class*="grid"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Cards não devem ultrapassar a tela */
+  div[class*="rounded"] {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -25,6 +55,73 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100vh;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling no iOS */
+}
+
+/* Corrigir problema da barra preta na lateral */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+}
+
+/* Garantir que todos os elementos respeitem a largura da tela */
+* {
+  box-sizing: border-box;
+}
+
+/* Corrigir containers que podem causar overflow */
+.container {
+  max-width: 100% !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+/* Garantir que imagens não causem overflow */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Corrigir problemas específicos do mobile */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  /* Garantir que o conteúdo não ultrapasse a largura da tela */
+  .w-full {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Corrigir elementos que podem causar overflow */
+  .flex {
+    flex-wrap: wrap;
+  }
+  
+  /* Garantir que textos longos não causem overflow */
+  .break-words {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
 }
 
 /* Estilos para conteúdo de artigos */
@@ -229,6 +326,163 @@ header, footer, nav {
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Correções específicas para header mobile */
+@media (max-width: 768px) {
+  /* Garantir alinhamento correto dos elementos do header */
+  header .flex,
+  div[class*="dashboard"] .flex {
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+  
+  /* Reset de margin/padding para elementos do header */
+  header *,
+  div[class*="dashboard"] header * {
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Garantir que a logo tenha o tamanho correto */
+  header img[alt*="Logo"],
+  div[class*="dashboard"] img[alt*="Logo"] {
+    width: 100px !important;
+    height: 100px !important;
+    object-fit: contain !important;
+  }
+  
+  /* Alinhamento dos ícones de navegação */
+  header .flex > div:last-child,
+  div[class*="dashboard"] .flex > div:last-child {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+  }
+  
+  /* Cursor pointer para elementos interativos */
+  header a,
+  header button,
+  div[class*="dashboard"] header a,
+  div[class*="dashboard"] header button {
+    cursor: pointer !important;
+  }
+}
+
+/* Espaçamento entre cards/blocos no mobile */
+@media (max-width: 768px) {
+  /* Espaçamento entre cards de artigos */
+  .grid > div,
+  div[class*="grid"] > div {
+    margin-bottom: 1rem !important; /* 16px */
+  }
+  
+  /* Espaçamento entre seções de filtros */
+  .flex.flex-wrap,
+  div[class*="flex-wrap"] {
+    gap: 0.75rem !important; /* 12px */
+    margin-bottom: 1rem !important; /* 16px */
+  }
+  
+  /* Espaçamento do header para o primeiro elemento */
+  main > div:first-child,
+  .main-container > div:first-child {
+    margin-top: 1rem !important; /* 16px */
+  }
+  
+  /* Margem inferior do último elemento antes da bottom navigation */
+  main > div:last-child,
+  .main-container > div:last-child {
+    margin-bottom: 5rem !important; /* 80px - safe area para bottom nav */
+    padding-bottom: 1rem !important; /* 16px extra */
+  }
+  
+  /* Espaçamento específico para cards de blog */
+  div[class*="rounded-xl"] {
+    margin-bottom: 1rem !important; /* 16px */
+  }
+  
+  /* Container principal com padding adequado */
+  .container,
+  div[class*="container"] {
+    padding-left: 1rem !important; /* 16px */
+    padding-right: 1rem !important; /* 16px */
+  }
+  
+  /* Gap específico para grids no mobile */
+  .grid {
+    gap: 1rem !important; /* 16px */
+  }
+  
+  /* Espaçamento entre elementos de navegação */
+  nav > div,
+  div[class*="nav"] > div {
+    margin-bottom: 1rem !important; /* 16px */
+  }
+}
+
+/* Espaçamento entre cards/blocos no desktop */
+@media (min-width: 769px) {
+  /* Espaçamento entre cards de artigos */
+  .grid > div,
+  div[class*="grid"] > div {
+    margin-bottom: 1.5rem !important; /* 24px */
+  }
+  
+  /* Espaçamento entre seções de filtros */
+  .flex.flex-wrap,
+  div[class*="flex-wrap"] {
+    gap: 1rem !important; /* 16px */
+    margin-bottom: 1.5rem !important; /* 24px */
+  }
+  
+  /* Espaçamento do header para o primeiro elemento */
+  main > div:first-child,
+  .main-container > div:first-child {
+    margin-top: 1.5rem !important; /* 24px */
+  }
+  
+  /* Margem inferior do último elemento */
+  main > div:last-child,
+  .main-container > div:last-child {
+    margin-bottom: 2rem !important; /* 32px */
+    padding-bottom: 1.5rem !important; /* 24px extra */
+  }
+  
+  /* Espaçamento específico para cards de blog */
+  div[class*="rounded-xl"] {
+    margin-bottom: 1.5rem !important; /* 24px */
+  }
+  
+  /* Container principal com padding adequado */
+  .container,
+  div[class*="container"] {
+    padding-left: 1.5rem !important; /* 24px */
+    padding-right: 1.5rem !important; /* 24px */
+  }
+  
+  /* Gap específico para grids no desktop */
+  .grid {
+    gap: 1.5rem !important; /* 24px */
+  }
+  
+  /* Espaçamento entre elementos de navegação */
+  nav > div,
+  div[class*="nav"] > div {
+    margin-bottom: 1.5rem !important; /* 24px */
+  }
+  
+  /* Espaçamento entre seções principais */
+  section,
+  div[class*="section"] {
+    margin-bottom: 2rem !important; /* 32px */
+  }
+  
+  /* Espaçamento entre grupos de cards */
+  .card-group,
+  div[class*="card-group"] {
+    margin-bottom: 2rem !important; /* 32px */
+  }
+}
+
 /* Estilo para conteúdo principal */
 main {
   position: relative;
@@ -301,4 +555,424 @@ main {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(127, 219, 63, 0.8), rgba(77, 168, 218, 0.8));
+}
+
+/* FORÇAR SCROLLBAR VISÍVEL NO MOBILE - VERSÃO AGRESSIVA */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Para dispositivos móveis - mostrar scrollbar SEMPRE */
+  * {
+    scrollbar-width: thin !important; /* Firefox - TODOS os elementos */
+    scrollbar-color: rgba(127, 219, 63, 0.9) rgba(0, 0, 0, 0.4) !important; /* Firefox */
+  }
+  
+  html, body {
+    overflow: auto !important;
+    scrollbar-width: thin !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Webkit scrollbar SUPER visível no mobile */
+  *::-webkit-scrollbar {
+    width: 16px !important;
+    height: 16px !important;
+    -webkit-appearance: none !important;
+    display: block !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.5) !important;
+    border-radius: 8px !important;
+    -webkit-box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3) !important;
+    border: 2px solid rgba(127, 219, 63, 0.3) !important;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, 
+      rgba(127, 219, 63, 0.95) 0%, 
+      rgba(77, 168, 218, 0.95) 50%,
+      rgba(127, 219, 63, 0.95) 100%) !important;
+    border-radius: 8px !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    -webkit-box-shadow: 
+      0 0 10px rgba(127, 219, 63, 0.6),
+      inset 0 0 5px rgba(255, 255, 255, 0.3) !important;
+    min-height: 30px !important;
+    min-width: 30px !important;
+  }
+  
+  *::-webkit-scrollbar-thumb:hover,
+  *::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, 
+      rgba(127, 219, 63, 1) 0%, 
+      rgba(77, 168, 218, 1) 50%,
+      rgba(127, 219, 63, 1) 100%) !important;
+    -webkit-box-shadow: 
+      0 0 15px rgba(127, 219, 63, 0.8),
+      inset 0 0 8px rgba(255, 255, 255, 0.4) !important;
+    transform: scale(1.05) !important;
+  }
+  
+  /* Forçar TODOS os containers importantes */
+  html, body, main, .main-container, div[class*="dashboard"], 
+  div[class*="estudos"], div[class*="cultivo"], div[class*="flex"] {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+  }
+  
+  /* Classe específica para forçar scrollbar visível no mobile */
+  .mobile-scroll-visible {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(127, 219, 63, 0.7) rgba(0, 0, 0, 0.2) !important;
+  }
+  
+  .mobile-scroll-visible::-webkit-scrollbar {
+    width: 14px !important;
+    height: 14px !important;
+    -webkit-appearance: none !important;
+    display: block !important;
+  }
+
+  .mobile-scroll-visible::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border-radius: 7px !important;
+    -webkit-box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(127, 219, 63, 0.1) !important;
+  }
+
+  .mobile-scroll-visible::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(127, 219, 63, 0.9), rgba(77, 168, 218, 0.9)) !important;
+    border-radius: 7px !important;
+    border: 2px solid rgba(0, 0, 0, 0.1) !important;
+    -webkit-box-shadow: 0 0 6px rgba(127, 219, 63, 0.4) !important;
+    min-height: 20px !important;
+  }
+  
+  .mobile-scroll-visible::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgba(127, 219, 63, 1), rgba(77, 168, 218, 1)) !important;
+    -webkit-box-shadow: 0 0 8px rgba(127, 219, 63, 0.6) !important;
+  }
+}
+
+/* Hide scrollbar but keep functionality for tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* OTIMIZAÇÕES PARA MODAL DE REGISTRO SEMANAL - MOBILE */
+@media (max-width: 767px) {
+  /* Modal de registro semanal - tela cheia em mobile */
+  .modal-fullscreen-mobile {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    transform: translateY(0) !important;
+  }
+
+  /* Container do modal */
+  .modal-container-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98)) !important;
+    backdrop-filter: blur(12px) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Header do modal */
+  .modal-header-mobile {
+    flex-shrink: 0 !important;
+    padding: 1rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Área de conteúdo com scroll */
+  .modal-content-mobile {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Botões de navegação fixos na parte inferior */
+  .modal-footer-mobile {
+    flex-shrink: 0 !important;
+    padding: 1rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Touch targets otimizados */
+  .touch-target-mobile {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Inputs otimizados para mobile */
+  .input-mobile {
+    min-height: 44px !important;
+    font-size: 16px !important; /* Evita zoom no iOS */
+    padding: 12px 16px !important;
+  }
+
+  /* Campos de texto com altura limitada */
+  .textarea-mobile {
+    min-height: 44px !important;
+    max-height: 120px !important; /* Limita altura máxima */
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+  }
+
+  /* Campos de observações com altura controlada */
+  .observations-mobile {
+    min-height: 44px !important;
+    max-height: 100px !important; /* Altura menor para observações */
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+  }
+
+  /* Botões otimizados para mobile */
+  .button-mobile {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Indicador de progresso otimizado */
+  .progress-indicator-mobile {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .progress-step-mobile {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+  }
+
+  /* Espaçamento otimizado para mobile */
+  .space-mobile {
+    margin-bottom: 1rem !important;
+  }
+
+  .space-mobile-sm {
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Texto otimizado para mobile */
+  .text-mobile {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .text-mobile-sm {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Forçar modal na parte inferior */
+  @media (max-width: 767px) {
+    .modal-fullscreen-mobile {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      justify-content: center !important;
+    }
+  }
+}
+
+/* Estilos para desktop que replicam o comportamento mobile */
+@media (min-width: 768px) {
+  /* Modal de registro semanal - mesmo comportamento do mobile */
+  .modal-fullscreen-mobile {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    transform: translateY(0) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Container do modal para desktop */
+  .modal-container-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98)) !important;
+    backdrop-filter: blur(12px) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Header do modal para desktop */
+  .modal-header-mobile {
+    flex-shrink: 0 !important;
+    padding: 1rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Área de conteúdo com scroll para desktop */
+  .modal-content-mobile {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Botões de navegação fixos na parte inferior para desktop */
+  .modal-footer-mobile {
+    flex-shrink: 0 !important;
+    padding: 1rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Touch targets otimizados para desktop */
+  .touch-target-mobile {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Inputs otimizados para desktop */
+  .input-mobile {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+  }
+
+  /* Campos de texto com altura limitada para desktop */
+  .textarea-mobile {
+    min-height: 44px !important;
+    max-height: 120px !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+  }
+
+  /* Campos de observações com altura controlada para desktop */
+  .observations-mobile {
+    min-height: 44px !important;
+    max-height: 100px !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+  }
+
+  /* Botões otimizados para desktop */
+  .button-mobile {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Indicador de progresso otimizado para desktop */
+  .progress-indicator-mobile {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .progress-step-mobile {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+  }
+
+  /* Espaçamento otimizado para desktop */
+  .space-mobile {
+    margin-bottom: 1rem !important;
+  }
+
+  .space-mobile-sm {
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Texto otimizado para desktop */
+  .text-mobile {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .text-mobile-sm {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+  }
 }

@@ -13,10 +13,13 @@ export default function Login() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const router = useRouter();
 
-  // Verificar localStorage em vez de useSearchParams
+  // Verificar localStorage e URL params
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const justRegistered = localStorage.getItem('justRegistered');
+      const urlParams = new URLSearchParams(window.location.search);
+      const resetParam = urlParams.get('reset');
+      
       if (justRegistered) {
         setMessage({
           text: 'Cadastro realizado com sucesso! Por favor, faça login.',
@@ -24,6 +27,11 @@ export default function Login() {
         });
         // Limpar a flag após usar
         localStorage.removeItem('justRegistered');
+      } else if (resetParam === 'true') {
+        setMessage({
+          text: 'Clique no link do email para redefinir sua senha ou faça login normalmente.',
+          type: 'success'
+        });
       }
     }
   }, []);

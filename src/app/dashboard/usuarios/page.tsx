@@ -48,13 +48,37 @@ export default function UsuariosPage() {
 
   // Carregar lista de usuários
   const carregarUsuarios = async () => {
-    if (!isAdmin) return;
+    console.log('🔄 carregarUsuarios chamada. isAdmin:', isAdmin);
     
+    if (!isAdmin) {
+      console.log('❌ Usuário não é admin, saindo da função');
+      return;
+    }
+    
+    console.log('📞 Chamando listUsers com página:', pagina, 'limite:', usuariosPorPagina);
     setCarregando(true);
-    const { users, count } = await listUsers(pagina, usuariosPorPagina);
-    setUsuarios(users);
-    setTotalUsuarios(count);
-    setCarregando(false);
+    
+    try {
+      const resultado = await listUsers(pagina, usuariosPorPagina);
+      console.log('✅ Resultado recebido do listUsers:', resultado);
+      console.log('📊 Total de usuários:', resultado.count);
+      console.log('👥 Usuários retornados:', resultado.users.length);
+      console.log('🔍 Dados dos usuários:', resultado.users);
+      
+      setUsuarios(resultado.users);
+      setTotalUsuarios(resultado.count);
+      
+      console.log('💾 Estado atualizado - usuarios:', resultado.users.length, 'total:', resultado.count);
+    } catch (error) {
+      console.error('❌ Erro em carregarUsuarios:', error);
+      setMensagem({ 
+        texto: 'Erro ao carregar usuários: ' + (error instanceof Error ? error.message : 'Erro desconhecido'), 
+        tipo: 'error' 
+      });
+    } finally {
+      setCarregando(false);
+      console.log('🏁 carregarUsuarios finalizada');
+    }
   };
 
   // Verificar se o usuário é admin, senão redirecionar

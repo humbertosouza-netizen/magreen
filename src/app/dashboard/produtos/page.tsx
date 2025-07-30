@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/contexts/UserContext';
 import theme from '@/styles/theme';
+import { useDashboardState } from '@/contexts/DashboardStateContext';
 
 // Interface para produtos
 interface Produto {
@@ -21,11 +22,20 @@ interface Produto {
 
 export default function ProdutosPage() {
   const { user, isAdmin } = useUser();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { setViewingItemId } = useDashboardState();
+  
+  // Forçar atualização do título
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
+  
+  // Estados para gerenciar produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [currentProduto, setCurrentProduto] = useState<Produto | null>(null);
-  const router = useRouter();
 
   // Form states
   const [nome, setNome] = useState('');
@@ -34,6 +44,7 @@ export default function ProdutosPage() {
   const [imagemUrl, setImagemUrl] = useState('');
   const [linkCheckout, setLinkCheckout] = useState('');
   const [ativo, setAtivo] = useState(true);
+  const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
 
   useEffect(() => {
     async function loadProdutos() {
@@ -110,34 +121,46 @@ export default function ProdutosPage() {
         alert('O nome do produto é obrigatório');
         return;
       }
-      
       if (!valor || isNaN(parseFloat(valor)) || parseFloat(valor) <= 0) {
         alert('Insira um valor válido para o produto');
         return;
       }
-      
+
+      let urlFinal = imagemUrl;
+      // Se houver arquivo novo, faz upload
+      if (imagemArquivo) {
+        const ext = imagemArquivo.name.split('.').pop();
+        const fileName = `produto_${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('produtos')
+          .upload(fileName, imagemArquivo, { upsert: true });
+        if (uploadError) {
+          throw uploadError;
+        }
+        // Gerar URL pública
+        const { data: publicUrlData } = supabase.storage.from('produtos').getPublicUrl(fileName);
+        urlFinal = publicUrlData.publicUrl;
+      }
+
       const produtoData = {
         nome,
         descricao,
         valor: parseFloat(valor),
-        imagem_url: imagemUrl,
+        imagem_url: urlFinal,
         link_checkout: linkCheckout,
         ativo
       };
-      
+
       if (currentProduto) {
         // Atualizar produto existente no Supabase
         const { error } = await supabase
           .from('cultivo_produtos_loja')
           .update(produtoData)
           .eq('id', currentProduto.id);
-          
         if (error) {
           console.error('Erro detalhado ao atualizar produto:', JSON.stringify(error));
           throw error;
         }
-        
-        // Atualizar estado local após confirmação do Supabase
         setProdutos(produtos.map(p => p.id === currentProduto.id ? {...p, ...produtoData, id: currentProduto.id} : p));
       } else {
         // Criar novo produto no Supabase
@@ -145,21 +168,16 @@ export default function ProdutosPage() {
           .from('cultivo_produtos_loja')
           .insert(produtoData)
           .select();
-          
         if (error) {
           console.error('Erro detalhado ao inserir produto:', JSON.stringify(error));
           throw error;
         }
-        
-        // Atualizar estado local após confirmação do Supabase
         if (data && data.length > 0) {
           setProdutos([data[0], ...produtos]);
         }
       }
-      
       resetForm();
       setShowModal(false);
-      
     } catch (error: any) {
       console.error('Erro ao salvar produto:', JSON.stringify(error));
       alert(`Ocorreu um erro ao salvar o produto: ${error?.message || 'Erro desconhecido'}`);
@@ -225,6 +243,7 @@ export default function ProdutosPage() {
     setImagemUrl('');
     setLinkCheckout('');
     setAtivo(true);
+    setImagemArquivo(null);
     
     // Limpar localStorage
     localStorage.removeItem('produtos_currentProduto');
@@ -270,10 +289,10 @@ export default function ProdutosPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-7xl mx-auto p-4 md:p-8 py-6 md:py-10 pb-24">
         {/* Cabeçalho com estilo Maia/Green */}
         <div 
-          className="mb-10 relative overflow-hidden rounded-xl p-8"
+          className="mb-6 md:mb-10 relative overflow-hidden rounded-xl p-4 md:p-8"
           style={{
             background: `linear-gradient(135deg, ${theme.colors.primary}90, ${theme.colors.accent}70)`,
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
@@ -289,10 +308,10 @@ export default function ProdutosPage() {
             }}
           />
           
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 
-                className="text-3xl md:text-4xl font-bold mb-2"
+                className="text-2xl md:text-3xl xl:text-4xl font-bold mb-2"
                 style={{ 
                   color: '#fff',
                   textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
@@ -301,7 +320,7 @@ export default function ProdutosPage() {
                 Produtos Magnificência
               </h1>
               <p 
-                className="text-lg"
+                className="text-base md:text-lg"
                 style={{ 
                   color: 'rgba(255, 255, 255, 0.9)',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
@@ -317,7 +336,7 @@ export default function ProdutosPage() {
                   resetForm();
                   setShowModal(true);
                 }}
-                className="mt-4 md:mt-0 px-6 py-3 rounded-full flex items-center justify-center transition-all transform hover:scale-105"
+                className="w-full md:w-auto mt-4 md:mt-0 px-4 md:px-6 py-2.5 md:py-3 rounded-full flex items-center justify-center transition-all transform hover:scale-105"
                 style={{ 
                   background: `linear-gradient(135deg, #F8CC3C, #E3A507)`,
                   color: '#1F1F1F',
@@ -325,10 +344,11 @@ export default function ProdutosPage() {
                   boxShadow: '0 4px 10px rgba(248, 204, 60, 0.3)'
                 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                 </svg>
-                Adicionar Produto
+                <span className="hidden sm:inline">Adicionar Produto</span>
+                <span className="sm:hidden">Adicionar</span>
               </button>
             )}
           </div>
@@ -336,7 +356,7 @@ export default function ProdutosPage() {
 
         {produtos.length === 0 ? (
           <div 
-            className="text-center py-16 rounded-xl"
+            className="text-center py-12 md:py-16 rounded-xl mx-2 md:mx-0"
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
               backdropFilter: 'blur(8px)',
@@ -346,12 +366,12 @@ export default function ProdutosPage() {
             <img 
               src="/images/logo/magnificencia-green-logo.svg" 
               alt="Magnificência Green" 
-              className="h-24 w-24 mx-auto mb-6 opacity-50"
+              className="h-16 w-16 md:h-24 md:w-24 mx-auto mb-4 md:mb-6 opacity-50"
             />
-            <h2 className="text-2xl font-bold mb-4" style={{ color: theme.colors.textPrimary }}>
+            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 px-4" style={{ color: theme.colors.textPrimary }}>
               Nenhum produto disponível
             </h2>
-            <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>
+            <p className="text-base md:text-lg mb-6 md:mb-8 px-4" style={{ color: theme.colors.textSecondary }}>
               No momento não temos produtos disponíveis em nosso catálogo.
             </p>
             
@@ -377,7 +397,7 @@ export default function ProdutosPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
             {produtos.filter(p => p.ativo || isAdmin).map((produto) => (
               <div 
                 key={produto.id} 
@@ -394,7 +414,7 @@ export default function ProdutosPage() {
                 }}
               >
                 {/* Imagem do produto com overlay gradiente */}
-                <div className="h-48 relative overflow-hidden">
+                <div className="h-40 md:h-48 relative overflow-hidden">
                   {produto.imagem_url ? (
                     <img 
                       src={produto.imagem_url}
@@ -406,7 +426,7 @@ export default function ProdutosPage() {
                       className="w-full h-full flex items-center justify-center"
                       style={{ background: `linear-gradient(135deg, ${theme.colors.primary}30, ${theme.colors.accent}30)` }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: theme.colors.primary }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 md:h-16 md:w-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: theme.colors.primary }}>
                         <path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z" />
                       </svg>
                     </div>
@@ -414,7 +434,7 @@ export default function ProdutosPage() {
                   
                   {/* Overlay de gradiente na parte inferior */}
                   <div 
-                    className="absolute bottom-0 left-0 right-0 h-20" 
+                    className="absolute bottom-0 left-0 right-0 h-16 md:h-20" 
                     style={{ 
                       background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)'
                     }}
@@ -423,7 +443,7 @@ export default function ProdutosPage() {
                   {/* Status tag (apenas se inativo) */}
                   {!produto.ativo && (
                     <div 
-                      className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold"
+                      className="absolute top-2 md:top-3 right-2 md:right-3 px-2 md:px-3 py-1 rounded-full text-xs font-bold"
                       style={{ 
                         background: 'rgba(255, 59, 48, 0.8)', 
                         color: 'white',
@@ -436,7 +456,7 @@ export default function ProdutosPage() {
                   
                   {/* Preço em destaque */}
                   <div 
-                    className="absolute bottom-3 right-3 px-3 py-1 rounded-full text-lg font-bold"
+                    className="absolute bottom-2 md:bottom-3 right-2 md:right-3 px-2 md:px-3 py-1 rounded-full text-sm md:text-lg font-bold"
                     style={{ 
                       background: `linear-gradient(135deg, #F8CC3C, #E3A507)`,
                       color: '#1F1F1F',
@@ -447,16 +467,16 @@ export default function ProdutosPage() {
                   </div>
                 </div>
                 
-                <div className="p-5">
+                <div className="p-4 md:p-5">
                   <h2 
-                    className="text-xl font-bold mb-3 line-clamp-2" 
+                    className="text-lg md:text-xl font-bold mb-2 md:mb-3 line-clamp-2" 
                     style={{ color: theme.colors.textPrimary }}
                   >
                     {produto.nome}
                   </h2>
                   
                   <p 
-                    className="text-sm mb-5 line-clamp-3" 
+                    className="text-sm mb-4 md:mb-5 line-clamp-3" 
                     style={{ color: theme.colors.textSecondary }}
                   >
                     {produto.descricao}
@@ -464,24 +484,24 @@ export default function ProdutosPage() {
                   
                   <div className="flex justify-between items-center">
                     {isAdmin ? (
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-1.5 md:space-x-2">
                         <button
                           onClick={() => handleEdit(produto)}
-                          className="p-2 rounded-full transition-colors"
+                          className="p-1.5 md:p-2 rounded-full transition-colors"
                           style={{ 
                             background: 'rgba(59, 130, 246, 0.15)',
                             color: '#3B82F6'
                           }}
                           title="Editar"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                           </svg>
                         </button>
                         
                         <button
                           onClick={() => toggleAtivo(produto.id, !produto.ativo)}
-                          className="p-2 rounded-full transition-colors"
+                          className="p-1.5 md:p-2 rounded-full transition-colors"
                           style={{ 
                             background: produto.ativo 
                               ? 'rgba(245, 158, 11, 0.15)' 
@@ -493,11 +513,11 @@ export default function ProdutosPage() {
                           title={produto.ativo ? "Desativar" : "Ativar"}
                         >
                           {produto.ativo ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" />
                             </svg>
                           ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                           )}
@@ -505,14 +525,14 @@ export default function ProdutosPage() {
                         
                         <button
                           onClick={() => handleDelete(produto.id)}
-                          className="p-2 rounded-full transition-colors"
+                          className="p-1.5 md:p-2 rounded-full transition-colors"
                           style={{ 
                             background: 'rgba(239, 68, 68, 0.15)',
                             color: '#EF4444'
                           }}
                           title="Excluir"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                           </svg>
                         </button>
@@ -522,7 +542,7 @@ export default function ProdutosPage() {
                         href={produto.link_checkout}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-5 py-2 rounded-full transition-all transform hover:scale-105 flex items-center"
+                        className="px-3 md:px-5 py-2 md:py-2.5 rounded-full transition-all transform hover:scale-105 flex items-center text-sm md:text-base"
                         style={{ 
                           background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                           color: '#1F1F1F',
@@ -530,14 +550,14 @@ export default function ProdutosPage() {
                           boxShadow: `0 4px 10px rgba(127, 219, 63, 0.3)`
                         }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                         </svg>
                         Comprar
                       </a>
                     ) : (
                       <span
-                        className="px-4 py-2 rounded-full text-sm"
+                        className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm"
                         style={{ 
                           background: 'rgba(255, 59, 48, 0.15)', 
                           color: '#FF3B30'
@@ -557,14 +577,14 @@ export default function ProdutosPage() {
       {/* Modal para adicionar/editar produto */}
       {showModal && (
         <div 
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 flex items-center justify-center z-50 p-2 md:p-4"
           style={{
             backgroundColor: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(5px)'
           }}
         >
           <div 
-            className="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-xl"
+            className="relative max-w-md sm:max-w-lg md:max-w-2xl w-full max-h-[95vh] overflow-y-auto rounded-xl"
             style={{
               background: 'rgba(31, 41, 55, 0.95)',
               boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
@@ -573,14 +593,14 @@ export default function ProdutosPage() {
           >
             {/* Header com gradiente */}
             <div 
-              className="flex justify-between items-center p-6 rounded-t-xl"
+              className="flex justify-between items-center p-4 md:p-6 rounded-t-xl"
               style={{
                 background: `linear-gradient(135deg, ${theme.colors.primary}80, ${theme.colors.accent}80)`,
                 borderBottom: '1px solid rgba(255,255,255,0.1)'
               }}
             >
               <h2 
-                className="text-2xl font-bold" 
+                className="text-lg md:text-2xl font-bold" 
                 style={{ 
                   color: '#fff',
                   textShadow: '0 2px 4px rgba(0,0,0,0.2)'
@@ -592,14 +612,14 @@ export default function ProdutosPage() {
                 onClick={() => setShowModal(false)}
                 className="text-white p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-all"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             
             {/* Formulário com estilo temático */}
-            <form onSubmit={handleSubmit} className="p-6">
+            <form onSubmit={handleSubmit} className="p-4 md:p-6">
               <div className="space-y-5">
                 {/* Nome do Produto */}
                 <div>
@@ -675,28 +695,34 @@ export default function ProdutosPage() {
                   />
                 </div>
                 
-                {/* URL da Imagem */}
+                {/* Imagem do Produto */}
                 <div>
                   <label 
                     className="block mb-2 text-sm font-medium"
                     style={{ color: '#F8CC3C' }}
                   >
-                    URL da Imagem
+                    Imagem do Produto
                   </label>
                   <input
-                    type="url"
-                    value={imagemUrl}
-                    onChange={(e) => setImagemUrl(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg focus:ring-2"
+                    type="file"
+                    accept="image/*"
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        setImagemArquivo(e.target.files[0]);
+                      } else {
+                        setImagemArquivo(null);
+                      }
+                    }}
+                    className="w-full px-4 py-3 rounded-lg focus:ring-2 bg-white text-black"
                     style={{ 
-                      background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: theme.colors.textPrimary,
                       transition: 'all 0.2s',
                       outline: 'none'
                     }}
-                    placeholder="https://exemplo.com/imagem.jpg"
                   />
+                  {imagemUrl && (
+                    <img src={imagemUrl} alt="Pré-visualização" className="mt-2 rounded-lg max-h-32" />
+                  )}
                 </div>
                 
                 {/* Link de Checkout */}
@@ -763,11 +789,11 @@ export default function ProdutosPage() {
               </div>
               
               {/* Botões de ação */}
-              <div className="flex justify-end space-x-4 mt-8">
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 mt-6 md:mt-8">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-5 py-2.5 rounded-lg transition-all"
+                  className="px-4 md:px-5 py-2.5 rounded-lg transition-all order-2 sm:order-1"
                   style={{ 
                     background: 'rgba(255, 255, 255, 0.1)',
                     color: theme.colors.textPrimary
@@ -777,7 +803,7 @@ export default function ProdutosPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg transition-all transform hover:scale-105"
+                  className="px-4 md:px-5 py-2.5 rounded-lg transition-all transform hover:scale-105 order-1 sm:order-2"
                   style={{ 
                     background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                     color: '#1F1F1F',

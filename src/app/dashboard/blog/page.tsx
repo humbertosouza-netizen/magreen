@@ -39,6 +39,11 @@ export default function DashboardBlogPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
 
+  // Forçar atualização do título
+  useEffect(() => {
+    document.title = 'Mag Green';
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchArticles();
@@ -61,14 +66,16 @@ export default function DashboardBlogPage() {
         .select('*')
         .order('data_criacao', { ascending: false });
       
-      if (activeTab === 'publicados') {
+      // Para usuários comuns, mostrar apenas posts publicados
+      if (!isAdmin) {
+        query = query.eq('publicado', true);
+      } else {
+        // Para admins, aplicar filtros normais
+        if (activeTab === 'publicados') {
         query = query.eq('publicado', true);
       } else if (activeTab === 'rascunhos') {
         query = query.eq('publicado', false);
       }
-      
-      if (!isAdmin) {
-        query = query.eq('autor_id', user?.id);
       }
       
       const { data: posts, error } = await query;
@@ -232,9 +239,9 @@ export default function DashboardBlogPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-10">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-10">
         <div 
-          className="mb-10 relative overflow-hidden rounded-xl p-8"
+          className="mb-6 md:mb-10 relative overflow-hidden rounded-xl p-4 md:p-8"
           style={{
             background: `linear-gradient(135deg, ${theme.colors.primary}90, ${theme.colors.accent}70)`,
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
@@ -252,7 +259,7 @@ export default function DashboardBlogPage() {
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center">
             <div>
               <h1 
-                className="text-3xl md:text-4xl font-bold mb-2"
+                className="text-2xl md:text-3xl xl:text-4xl font-bold mb-2"
                 style={{ 
                   color: '#fff',
                   textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
@@ -261,20 +268,20 @@ export default function DashboardBlogPage() {
                 Blog
               </h1>
               <p 
-                className="text-lg"
+                className="text-sm md:text-lg"
                 style={{ 
                   color: 'rgba(255, 255, 255, 0.9)',
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
                 }}
               >
-                Gerenciar artigos e publicações
+                {isAdmin ? 'Gerenciar artigos e publicações' : 'Artigos publicados disponíveis'}
               </p>
             </div>
             
-            <div className="flex items-center mt-4 md:mt-0 space-x-3">
+            <div className="flex items-center mt-4 md:mt-0 space-x-2 md:space-x-3">
               <button
                 onClick={() => fetchArticles()}
-                className="px-4 py-2 rounded-full flex items-center transition-all"
+                className="px-3 md:px-4 py-2 rounded-full flex items-center transition-all text-sm"
                 style={{ 
                   background: 'rgba(255, 255, 255, 0.2)',
                   color: 'white',
@@ -287,31 +294,36 @@ export default function DashboardBlogPage() {
                     <div className="animate-spin h-4 w-4 mr-2 border-2 border-white rounded-full border-t-transparent"></div>
                     Atualizando...
                   </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                    </svg>
-                    Atualizar
-                  </>
-                )}
-              </button>
+                                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                      </svg>
+                      <span className="hidden md:inline">Atualizar</span>
+                      <span className="md:hidden">Sync</span>
+                    </>
+                  )}
+                </button>
 
-              <Link
-                href="/dashboard/blog/novo"
-                className="px-6 py-3 rounded-full flex items-center justify-center transition-all transform hover:scale-105"
-                style={{ 
-                  background: `linear-gradient(135deg, #F8CC3C, #E3A507)`,
-                  color: '#1F1F1F',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 10px rgba(248, 204, 60, 0.3)'
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Novo Artigo
-              </Link>
+              {/* Botão "Novo Artigo" apenas para admins */}
+              {isAdmin && (
+                <Link
+                  href="/dashboard/blog/novo"
+                  className="px-4 md:px-6 py-2 md:py-3 rounded-full flex items-center justify-center transition-all transform hover:scale-105 text-sm md:text-base"
+                  style={{ 
+                    background: `linear-gradient(135deg, #F8CC3C, #E3A507)`,
+                    color: '#1F1F1F',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 10px rgba(248, 204, 60, 0.3)'
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="hidden md:inline">Novo Artigo</span>
+                  <span className="md:hidden">Novo</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -333,16 +345,19 @@ export default function DashboardBlogPage() {
           </div>
         )}
 
-        <div className="mb-6 rounded-xl overflow-hidden bg-opacity-10 backdrop-blur-sm" 
+        <div className="mb-4 md:mb-6 lg:mb-8 rounded-xl overflow-hidden bg-opacity-10 backdrop-blur-sm" 
           style={{
             background: 'rgba(255, 255, 255, 0.05)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
           }}
         >
-          <div className="flex">
+          <div className="flex overflow-x-auto whitespace-nowrap scrollbar-hide">
+            {/* Abas apenas para admins */}
+            {isAdmin ? (
+              <>
             <button
-              className={`py-3 px-6 font-medium text-sm transition-all ${
+              className={`py-3 px-3 md:px-6 font-medium text-xs md:text-sm transition-all whitespace-nowrap ${
                 activeTab === 'todos'
                   ? 'text-white bg-opacity-20'
                   : 'text-gray-400 hover:text-white'
@@ -354,14 +369,15 @@ export default function DashboardBlogPage() {
               onClick={() => setActiveTab('todos')}
             >
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-                Todos os Posts
+                <span className="hidden md:inline">Todos os Posts</span>
+                <span className="md:hidden">Todos</span>
               </div>
             </button>
             <button
-              className={`py-3 px-6 font-medium text-sm transition-all ${
+              className={`py-3 px-3 md:px-6 font-medium text-xs md:text-sm transition-all whitespace-nowrap ${
                 activeTab === 'publicados'
                   ? 'text-white bg-opacity-20'
                   : 'text-gray-400 hover:text-white'
@@ -373,14 +389,15 @@ export default function DashboardBlogPage() {
               onClick={() => setActiveTab('publicados')}
             >
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                 </svg>
-                Publicados
+                <span className="hidden sm:inline">Publicados</span>
+                <span className="sm:hidden">Pub</span>
               </div>
             </button>
             <button
-              className={`py-3 px-6 font-medium text-sm transition-all ${
+              className={`py-3 px-3 md:px-6 font-medium text-xs md:text-sm transition-all whitespace-nowrap ${
                 activeTab === 'rascunhos'
                   ? 'text-white bg-opacity-20'
                   : 'text-gray-400 hover:text-white'
@@ -392,13 +409,31 @@ export default function DashboardBlogPage() {
               onClick={() => setActiveTab('rascunhos')}
             >
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                  <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                </svg>
-                Rascunhos
+                                </svg>
+                <span className="hidden sm:inline">Rascunhos</span>
+                <span className="sm:hidden">Rasc</span>
               </div>
             </button>
+              </>
+            ) : (
+              /* Aba única para usuários comuns */
+              <div className="py-3 px-3 md:px-6 font-medium text-xs md:text-sm text-white bg-opacity-20"
+                style={{ 
+                  borderBottom: `2px solid ${theme.colors.primary}`,
+                  background: 'rgba(255, 255, 255, 0.05)'
+                }}
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                  <span className="hidden md:inline">Artigos Publicados</span>
+                  <span className="md:hidden">Artigos</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -410,11 +445,127 @@ export default function DashboardBlogPage() {
         )}
 
         {!loading && articles.length === 0 && !error && (
-          <></>
+          <>
+            {activeTab === 'todos' && searchQuery === '' && (
+              <div className="text-center py-16 rounded-xl overflow-hidden" 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
+                }}>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-20 w-20 mx-auto mb-6" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                  style={{ color: theme.colors.textSecondary }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo encontrado</h2>
+                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>
+                  {activeTab === 'todos' 
+                  ? 'Você ainda não possui nenhum artigo. Comece criando seu primeiro artigo.'
+                  : activeTab === 'publicados'
+                    ? 'Você ainda não publicou nenhum artigo.'
+                    : 'Você não possui nenhum rascunho de artigo.'}
+                </p>
+                {isAdmin && (
+                  <Link
+                    href="/dashboard/blog/novo"
+                    className="px-6 py-3 rounded-full transition-all transform hover:scale-105"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
+                      color: 'black',
+                      fontWeight: 'bold',
+                      boxShadow: '0 4px 15px rgba(127, 219, 63, 0.4)',
+                      touchAction: "manipulation"
+                    }}
+                  >
+                    Criar Primeiro Artigo
+                  </Link>
+                )}
+              </div>
+            )}
+            {activeTab === 'publicados' && searchQuery === '' && (
+              <div className="text-center py-16 rounded-xl overflow-hidden" 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
+                }}>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-20 w-20 mx-auto mb-6" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                  style={{ color: theme.colors.textSecondary }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo encontrado</h2>
+                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>Não encontramos artigos com os filtros aplicados.</p>
+                <button 
+                  onClick={() => {
+                    setActiveTab('todos');
+                    setSearchQuery('');
+                  }}
+                  className="px-6 py-3 rounded-full shadow-sm text-sm font-medium transition-all"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: theme.colors.textPrimary,
+                    touchAction: "manipulation"
+                  }}
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+            {activeTab === 'rascunhos' && searchQuery === '' && (
+              <div className="text-center py-16 rounded-xl overflow-hidden" 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
+                }}>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-20 w-20 mx-auto mb-6" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                  style={{ color: theme.colors.textSecondary }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo encontrado</h2>
+                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>Não encontramos artigos com os filtros aplicados.</p>
+                <button 
+                  onClick={() => {
+                    setActiveTab('todos');
+                    setSearchQuery('');
+                  }}
+                  className="px-6 py-3 rounded-full shadow-sm text-sm font-medium transition-all"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: theme.colors.textPrimary,
+                    touchAction: "manipulation"
+                  }}
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {articles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mb-4 md:mb-6 lg:mb-8">
             {articles.map(article => (
               <div key={article.id} className="rounded-xl overflow-hidden transition-all hover:shadow-xl"
                 style={{
@@ -424,7 +575,7 @@ export default function DashboardBlogPage() {
                   boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
                 }}>
                 {article.imagem_url ? (
-                  <div className="h-48 overflow-hidden">
+                  <div className="h-40 md:h-48 overflow-hidden">
                     <Link 
                       href={`/dashboard/blog/editar/${article.id}`}
                       className="block h-full w-full blog-clickable-element"
@@ -440,18 +591,18 @@ export default function DashboardBlogPage() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="h-48 flex items-center justify-center"
+                  <div className="h-40 md:h-48 flex items-center justify-center"
                     style={{
                       background: `linear-gradient(135deg, ${theme.colors.primary}30, ${theme.colors.accent}30)`,
                     }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1" style={{ color: theme.colors.primary }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 md:h-16 md:w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1" style={{ color: theme.colors.primary }}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                     </svg>
                   </div>
                 )}
                 
-                <div className="p-5">
-                  <div className="flex justify-between items-center mb-3">
+                <div className="p-3 md:p-5">
+                  <div className="flex justify-between items-center mb-2 md:mb-3">
                     <span 
                       className="px-2 py-1 text-xs rounded-full"
                       style={{ backgroundColor: theme.colors.primary + '30', color: theme.colors.textPrimary }}
@@ -461,18 +612,19 @@ export default function DashboardBlogPage() {
                     <span className="text-xs" style={{ color: theme.colors.textSecondary }}>{formatarData(article.data_criacao)}</span>
                   </div>
                   
-                  <h3 className="text-lg font-semibold mb-2 transition-colors" style={{ color: theme.colors.textPrimary }}>
+                  <h3 className="text-base md:text-lg font-semibold mb-2 transition-colors line-clamp-2" style={{ color: theme.colors.textPrimary }}>
                     {article.titulo}
                     {!article.publicado && (
-                      <span className="ml-2 px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: '#F8CC3C', color: '#1F1F1F' }}>
-                        Rascunho
+                      <span className="ml-1 md:ml-2 px-1 md:px-2 py-0.5 text-xs rounded-full" style={{ backgroundColor: '#F8CC3C', color: '#1F1F1F' }}>
+                        <span className="hidden md:inline">Rascunho</span>
+                        <span className="md:hidden">Draft</span>
                       </span>
                     )}
                   </h3>
-                  <p className="text-sm mb-4 line-clamp-3" style={{ color: theme.colors.textSecondary }}>{article.resumo}</p>
+                  <p className="text-xs md:text-sm mb-3 md:mb-4 line-clamp-2 md:line-clamp-3" style={{ color: theme.colors.textSecondary }}>{article.resumo}</p>
                   
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {article.tags && article.tags.map((tag, index) => (
+                  <div className="flex flex-wrap gap-1 md:gap-2 mb-3 md:mb-4">
+                    {article.tags && article.tags.slice(0, 3).map((tag, index) => (
                       <span 
                         key={index} 
                         className="text-xs py-1 px-2 rounded-full"
@@ -481,105 +633,82 @@ export default function DashboardBlogPage() {
                         #{tag}
                       </span>
                     ))}
-                  </div>
-                  
-                  <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex items-center justify-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', color: theme.colors.textPrimary }}>
-                        {article.autor_nome ? article.autor_nome.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <span className="text-sm" style={{ color: theme.colors.textSecondary }}>{article.autor_nome || 'Usuário'}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        className="h-5 w-5 mr-1" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                        style={{ color: theme.colors.textSecondary }}
+                    {article.tags && article.tags.length > 3 && (
+                      <span 
+                        className="text-xs py-1 px-2 rounded-full"
+                        style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', color: theme.colors.textSecondary }}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      <span className="text-sm" style={{ color: theme.colors.textSecondary }}>{article.visualizacoes || 0}</span>
-                    </div>
+                        +{article.tags.length - 3}
+                      </span>
+                    )}
                   </div>
                 </div>
                 
-                <div className="p-3 flex justify-between items-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-                  {isAdmin || (user && user.id === article.autor_id) ? (
-                    <div className="flex space-x-2">
+                <div className="p-2 md:p-3 flex justify-between items-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+                  {/* Botões de ação apenas para admins */}
+                  {isAdmin ? (
+                    <div className="flex space-x-1 md:space-x-2">
                       <Link 
                         href={`/dashboard/blog/editar/${article.id}`}
-                        className="text-xs hover:text-white transition-colors flex items-center blog-clickable-element"
-                        style={{ color: theme.colors.textSecondary, touchAction: "manipulation", minHeight: "36px" }}
+                        className="text-xs hover:text-white transition-colors flex items-center blog-clickable-element px-1"
+                        style={{ color: theme.colors.textSecondary, touchAction: "manipulation", minHeight: "32px" }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                         </svg>
-                        Editar
+                        <span className="hidden md:inline">Editar</span>
+                        <span className="md:hidden">Edit</span>
                       </Link>
-                      {isAdmin && (
                         <button 
-                          className={`text-xs blog-clickable-element transition-colors flex items-center`}
+                          className={`text-xs blog-clickable-element transition-colors flex items-center px-1`}
                           onClick={() => deletePost(article.id)}
                           disabled={deleting === article.id}
                           style={{ 
                             color: deleting === article.id ? theme.colors.textSecondary : theme.colors.error,
                             touchAction: "manipulation", 
-                            minHeight: "36px" 
+                            minHeight: "32px" 
                           }}
                         >
                           {deleting === article.id ? (
                             <>
                               <div className="animate-spin rounded-full h-3 w-3 border-2 border-t-transparent mr-1" 
                                   style={{ borderColor: theme.colors.error, borderTopColor: 'transparent' }}></div>
-                              Excluindo...
+                              <span className="hidden md:inline">Excluindo...</span>
+                              <span className="md:hidden">Del...</span>
                             </>
                           ) : (
                             <>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
-                              Excluir
+                              <span className="hidden md:inline">Excluir</span>
+                              <span className="md:hidden">Del</span>
                             </>
                           )}
                         </button>
-                      )}
                     </div>
                   ) : (
                     <div></div>
                   )}
-                  <div className="flex space-x-2">
-                    {article.publicado && (
+                  
+                  <div className="flex space-x-1 md:space-x-2">
+                    {/* Link externo para ver o post publicado */}
                       <Link 
                         href={`/blog/${article.id}`}
-                        className="text-xs px-3 py-1 rounded-full text-white transition-colors blog-clickable-element"
-                        style={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                          touchAction: "manipulation", 
-                          minHeight: "36px" 
-                        }}
-                      >
-                        Ver Publicado
-                      </Link>
-                    )}
-                    <Link 
-                      href={`/dashboard/blog/editar/${article.id}`}
-                      className="text-xs px-3 py-1 rounded-full blog-clickable-element"
+                        className="text-xs px-2 md:px-3 py-1 rounded-full text-white transition-colors blog-clickable-element flex items-center"
                       style={{ 
                         background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
                         color: 'black',
                         fontWeight: 'bold',
                         touchAction: "manipulation",
-                        minHeight: "36px" 
+                        minHeight: "28px" 
                       }}
                     >
-                      {isAdmin 
-                        ? (article.publicado ? 'Gerenciar' : 'Continuar Editando')
-                        : 'Visualizar'
-                      }
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      <span className="hidden md:inline">Ver Artigo</span>
+                      <span className="md:hidden">Ver</span>
                     </Link>
                   </div>
                 </div>
@@ -604,7 +733,7 @@ export default function DashboardBlogPage() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
             </svg>
-            {activeTab === 'todos' && searchQuery === '' ? (
+            {isAdmin ? (
               <>
                 <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo encontrado</h2>
                 <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>
@@ -614,7 +743,6 @@ export default function DashboardBlogPage() {
                     ? 'Você ainda não publicou nenhum artigo.'
                     : 'Você não possui nenhum rascunho de artigo.'}
                 </p>
-                {isAdmin && (
                   <Link
                     href="/dashboard/blog/novo"
                     className="px-6 py-3 rounded-full transition-all transform hover:scale-105"
@@ -628,17 +756,15 @@ export default function DashboardBlogPage() {
                   >
                     Criar Primeiro Artigo
                   </Link>
-                )}
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo encontrado</h2>
-                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>Não encontramos artigos com os filtros aplicados.</p>
+                <h2 className="text-2xl font-semibold mb-3" style={{ color: theme.colors.textPrimary }}>Nenhum artigo disponível</h2>
+                <p className="text-lg mb-8" style={{ color: theme.colors.textSecondary }}>
+                  Ainda não há artigos publicados disponíveis para visualização.
+                </p>
                 <button 
-                  onClick={() => {
-                    setActiveTab('todos');
-                    setSearchQuery('');
-                  }}
+                  onClick={() => fetchArticles()}
                   className="px-6 py-3 rounded-full shadow-sm text-sm font-medium transition-all"
                   style={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -646,7 +772,7 @@ export default function DashboardBlogPage() {
                     touchAction: "manipulation"
                   }}
                 >
-                  Limpar filtros
+                  Tentar novamente
                 </button>
               </>
             )}

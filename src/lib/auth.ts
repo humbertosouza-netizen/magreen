@@ -35,7 +35,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       id: profile.id,
       email: data.session.user.email || '',
       name: profile.nome_completo || profile.name || '',
-      role: profile.role || 'user',
+      role: profile.role?.toLowerCase() === 'admin' || profile.role?.toUpperCase() === 'ADMIN' ? 'admin' : 'user',
       avatar_url: profile.avatar_url || '',
       created_at: profile.created_at || new Date().toISOString(),
       banned: profile.banned || false
@@ -157,9 +157,6 @@ export async function listUsers(page = 1, limit = 10): Promise<{ users: UserProf
     // Calcular o offset com base na página e limite
     const offset = (page - 1) * limit;
     
-    // Não precisamos mais sincronizar usuários, pois o sistema está funcionando
-    // await syncMissingUsers();
-    
     // Buscar a contagem total
     const { count, error: countError } = await supabase
       .from('profiles')
@@ -176,8 +173,23 @@ export async function listUsers(page = 1, limit = 10): Promise<{ users: UserProf
     
     if (error) throw error;
     
+    // Mapear os dados do banco para o formato UserProfile
+    const mappedUsers: UserProfile[] = (users || []).map(user => ({
+      id: user.id,
+      email: user.email || '',
+      name: user.nome_completo || '',
+      nickname: user.nickname || '',
+      instagram: user.instagram || '',
+      role: user.role?.toLowerCase() === 'admin' || user.role?.toUpperCase() === 'ADMIN' ? 'admin' : 'user',
+      avatar_url: user.avatar_url || '',
+      created_at: user.created_at || new Date().toISOString(),
+      banned: user.banned || false,
+      banned_reason: user.banned_reason || '',
+      last_login: user.last_login || ''
+    }));
+    
     return {
-      users: users || [],
+      users: mappedUsers,
       count: count || 0
     };
   } catch (error) {
@@ -292,7 +304,22 @@ export async function getUserById(userId: string): Promise<UserProfile | null> {
       return null;
     }
     
-    return user as UserProfile;
+    // Mapear os dados do banco para o formato UserProfile
+    const mappedUser: UserProfile = {
+      id: user.id,
+      email: user.email || '',
+      name: user.nome_completo || '',
+      nickname: user.nickname || '',
+      instagram: user.instagram || '',
+      role: user.role?.toLowerCase() === 'admin' || user.role?.toUpperCase() === 'ADMIN' ? 'admin' : 'user',
+      avatar_url: user.avatar_url || '',
+      created_at: user.created_at || new Date().toISOString(),
+      banned: user.banned || false,
+      banned_reason: user.banned_reason || '',
+      last_login: user.last_login || ''
+    };
+    
+    return mappedUser;
   } catch (error) {
     console.error('Erro ao buscar usuário:', error);
     return null;
