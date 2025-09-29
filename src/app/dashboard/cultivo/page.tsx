@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/styles/colors';
@@ -94,6 +94,39 @@ export default function CultivoPage() {
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [fotos, setFotos] = useState<Foto[]>([]);
+  
+  // Busca e paginação
+  const [searchQuery, setSearchQuery] = usePageState<string>('cultivo_searchQuery', '');
+  const [pageSize, setPageSize] = usePageState<number>('cultivo_pageSize', 10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, pageSize]);
+  
+  const filteredCultivos = useMemo(() => {
+    const query = (searchQuery || '').trim().toLowerCase();
+    if (!query) return cultivos;
+    return cultivos.filter(c => {
+      const fields = [c.titulo, c.genetica, c.ambiente, c.status];
+      return fields.some(v => (v || '').toString().toLowerCase().includes(query));
+    });
+  }, [cultivos, searchQuery]);
+  
+  const totalPages = useMemo(() => {
+    const total = Math.ceil((filteredCultivos.length || 0) / (pageSize || 1));
+    return Math.max(1, total || 1);
+  }, [filteredCultivos.length, pageSize]);
+  
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+  
+  const paginatedCultivos = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredCultivos.slice(start, end);
+  }, [filteredCultivos, currentPage, pageSize]);
   
   // Estados para o formulário de novo cultivo
   const [titulo, setTitulo] = usePageState<string>('cultivo_titulo', '');
@@ -1022,6 +1055,41 @@ export default function CultivoPage() {
       {/* Conteúdo baseado na aba ativa */}
       {activeTab === 'cultivos' && (
         <div>
+          {/* Controles de busca e paginação */}
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por título, genética, ambiente ou status..."
+                className="w-full px-4 py-3 rounded-lg text-white"
+                style={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm" style={{ color: theme.colors.textSecondary }}>Itens por página</label>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="px-3 py-2 rounded-lg text-white"
+                style={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  outline: 'none',
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
           {cultivos.length === 0 ? (
             <div className="text-center py-16 rounded-xl overflow-hidden flex flex-col items-center justify-center" 
               style={{
@@ -1049,8 +1117,14 @@ export default function CultivoPage() {
               </button>
             </div>
           ) : (
+            <>
+            {filteredCultivos.length === 0 ? (
+              <div className="text-center py-12 rounded-xl mx-4 md:mx-0" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <p className="text-lg" style={{ color: theme.colors.textSecondary }}>Nenhum cultivo encontrado para a pesquisa.</p>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 px-4 md:px-0">
-              {cultivos.map(cultivo => (
+              {paginatedCultivos.map(cultivo => (
                 <div 
                   key={cultivo.id} 
                     className="rounded-xl overflow-hidden transform transition-all hover:scale-102 hover:shadow-xl"
@@ -1172,6 +1246,40 @@ export default function CultivoPage() {
                 </div>
               ))}
             </div>
+            )}
+            {/* Paginação */}
+            {filteredCultivos.length > 0 && (
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage === 1 ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Anterior
+                </button>
+                <span className="text-sm" style={{ color: theme.colors.textSecondary }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage >= totalPages ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
+            </>
           )}
         </div>
       )}
@@ -1195,10 +1303,12 @@ export default function CultivoPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-6">
               {/* Título */}
               <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                  <label htmlFor="titulo" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                   Título do Cultivo *
                 </label>
                 <input
+                  id="titulo"
+                  name="titulo"
                   type="text"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
@@ -1215,10 +1325,12 @@ export default function CultivoPage() {
               
               {/* Genética */}
               <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                  <label htmlFor="genetica" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                   Genética *
                 </label>
                 <input
+                  id="genetica"
+                  name="genetica"
                   type="text"
                   value={genetica}
                   onChange={(e) => setGenetica(e.target.value)}
@@ -1260,10 +1372,12 @@ export default function CultivoPage() {
               
               {/* Iluminação */}
               <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                  <label htmlFor="iluminacao" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                   Iluminação
                 </label>
                 <input
+                  id="iluminacao"
+                  name="iluminacao"
                   type="text"
                   value={iluminacao}
                   onChange={(e) => setIluminacao(e.target.value)}
@@ -1279,10 +1393,12 @@ export default function CultivoPage() {
               
               {/* Substrato */}
               <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                  <label htmlFor="substrato" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                   Substrato
                 </label>
                 <input
+                  id="substrato"
+                  name="substrato"
                   type="text"
                   value={substrato}
                   onChange={(e) => setSubstrato(e.target.value)}
@@ -1298,10 +1414,12 @@ export default function CultivoPage() {
               
               {/* Sistema */}
               <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+                  <label htmlFor="sistema" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                   Sistema
                 </label>
                 <input
+                  id="sistema"
+                  name="sistema"
                   type="text"
                   value={sistema}
                   onChange={(e) => setSistema(e.target.value)}

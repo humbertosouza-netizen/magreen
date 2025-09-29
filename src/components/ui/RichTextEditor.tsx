@@ -30,10 +30,64 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     src: string; 
     alt: string; 
     index: number; 
-    type: 'supabase' | 'external';
+    type: 'supabase' | 'external' | 'empty';
     originalSrc: string;
   }>>([]);
+  // Estado do modal de carrossel
+  const [isCarouselModalOpen, setIsCarouselModalOpen] = useState(false);
+  const [carouselCandidates, setCarouselCandidates] = useState<Array<{ src: string; alt: string; index: number }>>([]);
+  const [selectedCarousel, setSelectedCarousel] = useState<string[]>([]);
+  // Modal de URLs para carrossel
+  const [isUrlCarouselModalOpen, setIsUrlCarouselModalOpen] = useState(false);
+  const [urlFields, setUrlFields] = useState<string[]>(['']);
+  // Modal de carrossel vazio (slots)
+  const [isEmptyCarouselModalOpen, setIsEmptyCarouselModalOpen] = useState(false);
+  const [emptySlots, setEmptySlots] = useState<number>(3);
+  // Fileiras de imagens detectadas (para transformar em carrossel)
+  const [imageRows, setImageRows] = useState<Array<{
+    id: string;
+    type: 'table' | 'inline';
+    srcs: string[];
+    tableIndex?: number;
+    containerIndex?: number;
+    start?: number;
+    length?: number;
+  }>>([]);
+  // Fileiras já criadas (carrosséis detectados)
+  const [createdRows, setCreatedRows] = useState<Array<{ id: string; srcs: string[] }>>([]);
+  // Evitar clique duplo durante transformação
+  const [transformingRowId, setTransformingRowId] = useState<string | null>(null);
+  // Modal de substituição em sequência (externos -> Supabase)
+  const [isBulkReplaceOpen, setIsBulkReplaceOpen] = useState(false);
+  const [bulkReplaceText, setBulkReplaceText] = useState('');
   const { processWordImages } = useWordImageUploader();
+  // Helper para inserir HTML no cursor com fallback
+  const insertHtmlAtCursor = (html: string) => {
+    try {
+      // Garantir foco no editor
+      editorRef.current?.focus();
+      const supported = document.queryCommandSupported && document.queryCommandSupported('insertHTML');
+      if (supported) {
+        const ok = document.execCommand('insertHTML', false, html);
+        if (!ok) {
+          // Fallback para append
+          if (editorRef.current) {
+            editorRef.current.innerHTML = (editorRef.current.innerHTML || '') + html;
+          }
+        }
+      } else {
+        if (editorRef.current) {
+          editorRef.current.innerHTML = (editorRef.current.innerHTML || '') + html;
+        }
+      }
+    } catch (e) {
+      if (editorRef.current) {
+        editorRef.current.innerHTML = (editorRef.current.innerHTML || '') + html;
+      }
+    }
+    // Atualizar estados
+    handleInput();
+  };
 
   // Aplicar comandos de formatação
   const execCommand = (command: string, value?: string) => {
@@ -56,7 +110,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       .replace(/<\/span>/g, '')
       .replace(/<p[^>]*>/g, '<p>')
       .replace(/<div[^>]*>/g, '<div>')
-      .replace(/<br[^>]*>/g, '<br>');
+      .replace(/<br[^>]*>/g, '<br>')
+      .replace(/<!--\[if[^>]*>([\s\S]*?)<!\[endif\]-->/g, '')
+      .replace(/<v:[^>]*>([\s\S]*?)<\/v:[^>]*>/g, '')
+      .replace(/<m:[^>]*>([\s\S]*?)<\/m:[^>]*>/g, '')
+      .replace(/<xml[^>]*>([\s\S]*?)<\/xml>/g, '')
+      .replace(/<![^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   };
 
   // Lidar com colagem
@@ -96,23 +157,83 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   // Atualizar valor quando o conteúdo mudar
   const handleInput = () => {
     if (editorRef.current) {
+      // Aplicar justificação a novos parágrafos
+      const paragraphs = editorRef.current.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        if (!p.style.textAlign || p.style.textAlign !== 'justify') {
+          p.style.textAlign = 'justify';
+          (p.style as any).textJustify = 'inter-word';
+          p.style.hyphens = 'auto';
+        }
+      });
+
       const newValue = editorRef.current.innerHTML;
       onChange(newValue);
       setHtmlValue(newValue);
+      // Atualizar Links e Fileiras imediatamente para refletir no Preview/Links
+      try {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newValue;
+        const images = tempDiv.querySelectorAll('img');
+        const links = Array.from(images).map((img, idx) => {
+          const src = img.getAttribute('src');
+          const alt = img.getAttribute('alt') || `Imagem ${idx + 1}`;
+          if (src && src.trim() !== '') {
+            const isSupabase = src.includes('supabase.co') || src.includes('blog-conteudo');
+            return { src: src.trim(), alt, index: idx + 1, type: isSupabase ? 'supabase' : 'external', originalSrc: src.trim() };
+          }
+          return { src: '', alt, index: idx + 1, type: 'empty', originalSrc: '' };
+        });
+        setLinksCache(links as any);
+        detectImageRows();
+        detectCreatedRows();
+      } catch {}
     }
   };
 
   // Sincronizar valor externo
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+      // Limpar HTML do Word se presente
+      const cleanedValue = value.includes('<!--[if') ? cleanWordHtml(value) : value;
+      editorRef.current.innerHTML = cleanedValue;
     }
     setHtmlValue(value);
     
     // Atualizar cache de links quando o valor mudar
     const newLinks = extractImageLinks();
     setLinksCache(newLinks);
+    detectCreatedRows();
   }, [value]);
+
+  // Aplicar justificação por padrão quando o editor for focado pela primeira vez
+  useEffect(() => {
+    const handleFirstFocus = () => {
+      if (editorRef.current && !editorRef.current.dataset.justified) {
+        // Aplicar justificação a todos os parágrafos existentes
+        const paragraphs = editorRef.current.querySelectorAll('p');
+        paragraphs.forEach(p => {
+          p.style.textAlign = 'justify';
+          (p.style as any).textJustify = 'inter-word';
+          p.style.hyphens = 'auto';
+        });
+        
+        // Marcar como justificado
+        editorRef.current.dataset.justified = 'true';
+      }
+    };
+
+    const editor = editorRef.current;
+    if (editor) {
+      editor.addEventListener('focus', handleFirstFocus, { once: true });
+    }
+
+    return () => {
+      if (editor) {
+        editor.removeEventListener('focus', handleFirstFocus);
+      }
+    };
+  }, []);
 
   // Lidar com clique em imagens
   const handleImageClick = (e: React.MouseEvent) => {
@@ -200,6 +321,83 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Atualizar cache de links ao entrar na aba
     const newLinks = extractImageLinks();
     setLinksCache(newLinks);
+    detectImageRows();
+    detectCreatedRows();
+  };
+
+  // Abrir modal de criação de carrossel com imagens do Supabase
+  const openCarouselBuilder = () => {
+    const images = (linksCache.length > 0 ? linksCache : extractImageLinks()).filter(l => l.type === 'supabase');
+    const candidates = images.map(l => ({ src: l.src, alt: l.alt, index: l.index }));
+    setCarouselCandidates(candidates);
+    setSelectedCarousel([]);
+    setIsCarouselModalOpen(true);
+  };
+
+  const toggleCarouselItem = (src: string) => {
+    setSelectedCarousel(prev => prev.includes(src) ? prev.filter(s => s !== src) : [...prev, src]);
+  };
+
+  const moveCarouselItem = (src: string, direction: 'up' | 'down') => {
+    setSelectedCarousel(prev => {
+      const arr = [...prev];
+      const idx = arr.indexOf(src);
+      if (idx === -1) return arr;
+      const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapWith < 0 || swapWith >= arr.length) return arr;
+      const temp = arr[swapWith];
+      arr[swapWith] = arr[idx];
+      arr[idx] = temp;
+      return arr;
+    });
+  };
+
+  const insertCarouselIntoEditor = () => {
+    const urls = selectedCarousel;
+    if (!urls || urls.length === 0) {
+      setIsCarouselModalOpen(false);
+      return;
+    }
+    const imagesHtml = urls.map((u, i) => `<img src="${u}" alt="Imagem ${i + 1}" />`).join('');
+    const html = `
+      <div class="simple-carousel" data-type="simple-carousel">
+        <div class="simple-carousel-track">
+          ${imagesHtml}
+        </div>
+      </div>
+    `;
+    insertHtmlAtCursor(html);
+    setIsCarouselModalOpen(false);
+  };
+
+  // Substituir, em sequência, os <img> externos por URLs do Supabase fornecidas
+  const bulkReplaceExternalWithSupabase = (urls: string[]) => {
+    try {
+      const currentHtml = value || '';
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = currentHtml;
+      const imgs = Array.from(tempDiv.querySelectorAll('img')) as HTMLImageElement[];
+      const externalImages = imgs
+        .map((img, idx) => ({ img, idx }))
+        .filter(({ img }) => {
+          const src = img.getAttribute('src') || '';
+          return !(src.includes('supabase.co') || src.includes('blog-conteudo'));
+        });
+
+      const count = Math.min(urls.length, externalImages.length);
+      for (let i = 0; i < count; i++) {
+        externalImages[i].img.setAttribute('src', urls[i]);
+      }
+
+      const updatedHtml = tempDiv.innerHTML;
+      if (editorRef.current) editorRef.current.innerHTML = updatedHtml;
+      onChange(updatedHtml);
+      setHtmlValue(updatedHtml);
+      setLinksCache(extractImageLinksFrom(updatedHtml));
+      detectImageRows();
+    } catch (e) {
+      console.error('Erro na substituição em sequência:', e);
+    }
   };
 
   // Função para extrair links das imagens
@@ -217,7 +415,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         src: string; 
         alt: string; 
         index: number; 
-        type: 'supabase' | 'external';
+        type: 'supabase' | 'external' | 'empty';
         originalSrc: string;
       }> = [];
       
@@ -236,6 +434,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             index: index + 1,
             type,
             originalSrc: src.trim()
+          });
+        } else {
+          // Entrada vazia/pendente para permitir edição de link
+          links.push({
+            src: '',
+            alt: alt.trim(),
+            index: index + 1,
+            type: 'empty',
+            originalSrc: ''
           });
         }
       });
@@ -315,9 +522,249 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   // Função para forçar atualização do cache de links
+  const extractImageLinksFrom = (html: string) => {
+    try {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html || '';
+      const images = tempDiv.querySelectorAll('img');
+      const links: Array<{ src: string; alt: string; index: number; type: 'supabase' | 'external' | 'empty'; originalSrc: string }>=[];
+      images.forEach((img, index) => {
+        const src = img.getAttribute('src');
+        const alt = img.getAttribute('alt') || `Imagem ${index + 1}`;
+        if (src && src.trim() !== '') {
+          const isSupabase = src.includes('supabase.co') || src.includes('blog-conteudo');
+          const type = isSupabase ? 'supabase' : 'external';
+          links.push({ src: src.trim(), alt: alt.trim(), index: index + 1, type, originalSrc: src.trim() });
+        } else {
+          links.push({ src: '', alt: alt.trim(), index: index + 1, type: 'empty', originalSrc: '' });
+        }
+      });
+      return links;
+    } catch {
+      return [];
+    }
+  };
+
   const refreshLinksCache = () => {
     const newLinks = extractImageLinks();
     setLinksCache(newLinks);
+    detectImageRows();
+    detectCreatedRows();
+  };
+
+  const arraysEqual = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+  const detectImageRows = () => {
+    try {
+      const temp = document.createElement('div');
+      temp.innerHTML = value || '';
+      const rows: Array<{ id: string; type: 'table' | 'inline'; srcs: string[]; tableIndex?: number; containerIndex?: number; start?: number; length?: number; }> = [];
+
+      // Tabelas com várias imagens
+      const tables = Array.from(temp.querySelectorAll('table'));
+      tables.forEach((table, idx) => {
+        const srcs = Array.from(table.querySelectorAll('img')).map(img => img.getAttribute('src') || '').filter(Boolean);
+        if (srcs.length > 1) rows.push({ id: `table-${idx}`, type: 'table', srcs, tableIndex: idx });
+      });
+
+      // Blocos inline com imagens consecutivas
+      const candidates = Array.from(temp.querySelectorAll('div, p, section, article, figure'));
+      candidates.forEach((container, cidx) => {
+        // Ignorar containers que já contenham um carrossel simples
+        if (container.querySelector('.simple-carousel')) return;
+        const children = Array.from(container.childNodes);
+        let buf: string[] = [];
+        let runStart = -1;
+        const flush = () => {
+          if (buf.length > 1 && runStart >= 0) {
+            rows.push({ id: `inline-${cidx}-${rows.length}`, type: 'inline', srcs: [...buf], containerIndex: cidx, start: runStart, length: buf.length });
+          }
+          buf = []; runStart = -1;
+        };
+        children.forEach(n => {
+          if (n.nodeType === 1 && (n as Element).tagName === 'IMG') {
+            const src = (n as HTMLImageElement).getAttribute('src') || '';
+            if (src) { if (runStart === -1) runStart = children.indexOf(n); buf.push(src); }
+          } else {
+            flush();
+          }
+        });
+        flush();
+      });
+
+      setImageRows(rows);
+    } catch {
+      setImageRows([]);
+    }
+  };
+
+  // Detectar fileiras já criadas (carrosséis) no HTML atual
+  const detectCreatedRows = (htmlOverride?: string) => {
+    try {
+      const temp = document.createElement('div');
+      temp.innerHTML = htmlOverride ?? (value || '');
+      const carousels = Array.from(temp.querySelectorAll('.simple-carousel')) as HTMLElement[];
+      const list: Array<{ id: string; srcs: string[] }> = carousels.map((wrapper, idx) => {
+        const imgs = Array.from(wrapper.querySelectorAll('.simple-carousel-track img')) as HTMLImageElement[];
+        const srcs = imgs.map(i => i.getAttribute('src') || '').filter(Boolean);
+        return { id: `created-${idx}`, srcs };
+      });
+      setCreatedRows(list);
+    } catch {
+      setCreatedRows([]);
+    }
+  };
+
+  const transformRowToCarousel = (row: { id: string; type: 'table' | 'inline'; srcs: string[]; tableIndex?: number; containerIndex?: number; start?: number; length?: number; }) => {
+    try {
+      if (transformingRowId) return; // já processando alguma fileira
+      setTransformingRowId(row.id);
+      const temp = document.createElement('div');
+      temp.innerHTML = value || '';
+      let transformed = false;
+
+      if (row.type === 'table') {
+        // Encontrar a tabela pelo conjunto exato de imagens (ordem)
+        const tables = Array.from(temp.querySelectorAll('table')) as HTMLTableElement[];
+        for (const t of tables) {
+          const srcs = Array.from(t.querySelectorAll('img')).map(i => i.getAttribute('src') || '').filter(Boolean);
+          if (arraysEqual(srcs, row.srcs)) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'simple-carousel';
+            const track = document.createElement('div');
+            track.className = 'simple-carousel-track';
+            row.srcs.forEach((s, i) => { const img = document.createElement('img'); img.src = s; img.alt = `Imagem ${i + 1}`; track.appendChild(img); });
+            wrapper.appendChild(track);
+            t.parentNode?.replaceChild(wrapper, t);
+            transformed = true;
+            break;
+          }
+        }
+      } else {
+        // Localizar a sequência exata de <img> consecutivos com os mesmos srcs
+        const containers = Array.from(temp.querySelectorAll('div, p, section, article, figure')) as HTMLElement[];
+        outer: for (const container of containers) {
+          if (container.querySelector('.simple-carousel')) continue;
+          const children = Array.from(container.childNodes);
+          let run: { startIndex: number; nodes: HTMLImageElement[]; srcs: string[] } | null = null;
+          const flush = () => {
+            if (run && run.srcs.length > 1) {
+              if (arraysEqual(run.srcs, row.srcs)) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'simple-carousel';
+                const track = document.createElement('div');
+                track.className = 'simple-carousel-track';
+                row.srcs.forEach((s, idx) => { const img = document.createElement('img'); img.src = s; img.alt = `Imagem ${idx + 1}`; track.appendChild(img); });
+                wrapper.appendChild(track);
+                container.insertBefore(wrapper, run.nodes[0]);
+                run.nodes.forEach(n => n.remove());
+                transformed = true;
+              }
+            }
+            run = null;
+          };
+          for (let i = 0; i < children.length; i++) {
+            const n = children[i];
+            if (n.nodeType === 1 && (n as Element).tagName === 'IMG') {
+              const img = n as HTMLImageElement;
+              const s = img.getAttribute('src') || '';
+              if (!run) run = { startIndex: i, nodes: [], srcs: [] };
+              run.nodes.push(img);
+              if (s) run.srcs.push(s);
+            } else {
+              // Fim da sequência de imagens
+              flush();
+              if (transformed) break outer;
+            }
+          }
+          // Final do container
+          flush();
+          if (transformed) break;
+        }
+      }
+
+      if (transformed) {
+        const html = temp.innerHTML;
+        if (editorRef.current) editorRef.current.innerHTML = html;
+        onChange(html);
+        setHtmlValue(html);
+        setLinksCache(extractImageLinksFrom(html));
+        // Recalcular fileiras com o HTML atualizado
+        try {
+          const temp2 = document.createElement('div');
+          temp2.innerHTML = html;
+          const rowsNew: Array<{ id: string; type: 'table' | 'inline'; srcs: string[]; tableIndex?: number; containerIndex?: number; start?: number; length?: number; }> = [];
+          const tables2 = Array.from(temp2.querySelectorAll('table'));
+          tables2.forEach((table, idx2) => {
+            const srcs = Array.from(table.querySelectorAll('img')).map(i => i.getAttribute('src') || '').filter(Boolean);
+            if (srcs.length > 1) rowsNew.push({ id: `table-${idx2}`, type: 'table', srcs, tableIndex: idx2 });
+          });
+          const candidates2 = Array.from(temp2.querySelectorAll('div, p, section, article, figure'));
+          candidates2.forEach((container, cidx2) => {
+            if ((container as HTMLElement).querySelector('.simple-carousel')) return;
+            const children = Array.from(container.childNodes);
+            let buf: string[] = []; let runStart=-1;
+            const flush=()=>{ if(buf.length>1 && runStart>=0){ rowsNew.push({ id:`inline-${cidx2}-${rowsNew.length}`, type:'inline', srcs:[...buf], containerIndex:cidx2, start:runStart, length:buf.length}); } buf=[]; runStart=-1; };
+            children.forEach(n=>{ if(n.nodeType===1 && (n as Element).tagName==='IMG'){ const s=(n as HTMLImageElement).getAttribute('src')||''; if(s){ if(runStart===-1) runStart=children.indexOf(n); buf.push(s);} } else { flush(); } });
+            flush();
+          });
+          setImageRows(rowsNew);
+          // Se a row recém-transformada ainda aparecer por erro de index, filtrar pelo conteúdo
+          setImageRows(prev => prev.filter(r => !arraysEqual(r.srcs, row.srcs)));
+          // Atualizar lista de fileiras criadas
+          detectCreatedRows(html);
+        } catch { setImageRows([]); }
+      } else {
+        alert('Não foi possível localizar essa fileira no conteúdo atual.');
+      }
+    } catch (e) { console.error('Erro ao transformar fileira:', e); }
+    finally { setTransformingRowId(null); }
+  };
+
+  // Inserir carrossel de imagens (molde via tabela)
+  // Abrir modal de URLs
+  const openUrlCarouselModal = () => {
+    setUrlFields(['', '', '']);
+    setIsUrlCarouselModalOpen(true);
+  };
+
+  const addUrlField = () => setUrlFields(prev => [...prev, '']);
+  const removeUrlField = (idx: number) => setUrlFields(prev => prev.filter((_, i) => i !== idx));
+  const updateUrlField = (idx: number, value: string) => setUrlFields(prev => prev.map((v, i) => (i === idx ? value : v)));
+  const moveUrlField = (idx: number, dir: 'up' | 'down') => setUrlFields(prev => {
+    const arr = [...prev];
+    const swap = dir === 'up' ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= arr.length) return arr;
+    const t = arr[swap];
+    arr[swap] = arr[idx];
+    arr[idx] = t;
+    return arr;
+  });
+
+  const bulkPasteUrls = (text: string) => {
+    const urls = text
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    if (urls.length > 0) setUrlFields(urls);
+  };
+
+  const insertUrlCarousel = () => {
+    const urls = urlFields.map(s => s.trim()).filter(Boolean);
+    if (urls.length === 0) {
+      setIsUrlCarouselModalOpen(false);
+      return;
+    }
+    const imagesHtml = urls.map((u, i) => `<img src="${u}" alt="Imagem ${i + 1}" />`).join('');
+    const html = `
+      <div class="simple-carousel" data-type="simple-carousel">
+        <div class="simple-carousel-track">
+          ${imagesHtml}
+        </div>
+      </div>
+    `;
+    insertHtmlAtCursor(html);
+    setIsUrlCarouselModalOpen(false);
   };
 
   // Botões da barra de ferramentas
@@ -433,6 +880,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
             <div className="toolbar-group">
               <ToolbarButton 
+                onClick={openUrlCarouselModal}
+                title="Criar carrossel a partir de links (modal)"
+              >
+                Carrossel
+              </ToolbarButton>
+            </div>
+
+            <div className="toolbar-group">
+              <ToolbarButton 
                 onClick={() => execCommand('insertUnorderedList')} 
                 title="Lista não ordenada"
               >
@@ -464,6 +920,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 title="Alinhar à direita"
               >
                 →
+              </ToolbarButton>
+              <ToolbarButton 
+                onClick={() => execCommand('justifyFull')} 
+                title="Justificar texto"
+              >
+                ⇔
               </ToolbarButton>
             </div>
 
@@ -558,6 +1020,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
+            <button type="button" className="build-carousel-btn" onClick={openCarouselBuilder} title="Criar carrossel com imagens hospedadas">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z"/></svg>
+              Criar carrossel
+            </button>
+            <button type="button" className="build-carousel-btn" onClick={() => { setEmptySlots(3); setIsEmptyCarouselModalOpen(true); }} title="Criar carrossel vazio (defina a quantidade de imagens)">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4v16m8-8H4"/></svg>
+              Carrossel vazio
+            </button>
           </div>
           
           <div className="links-content">
@@ -585,6 +1055,62 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               
               return (
                 <div className="links-sections">
+                  {/* Fileiras detectadas para transformar em carrossel */}
+                  {imageRows.length > 0 && (
+                    <div className="links-section">
+                      <div className="section-header">
+                        <div className="section-icon external-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 5h14v2H3zM3 9h14v2H3zM3 13h14v2H3z" />
+                          </svg>
+                        </div>
+                        <div className="section-info">
+                          <h4 className="section-title">Fileiras de imagens detectadas</h4>
+                          <p className="section-count">{imageRows.length} fileira(s)</p>
+                        </div>
+                      </div>
+                      <div className="links-list">
+                        {imageRows.map((row, idx) => (
+                          <div key={row.id} className="link-item">
+                            <div className="link-header">
+                              <span className="link-number">#{idx + 1}</span>
+                              <span className="link-alt">{row.type === 'table' ? 'Tabela' : 'Inline'} • {row.srcs.length} imagem(ns)</span>
+                            </div>
+                            <div className="link-actions">
+                              <button type="button" className="btn-insert" disabled={transformingRowId === row.id} onClick={() => transformRowToCarousel(row)}>
+                                {transformingRowId === row.id ? 'Criando…' : 'Transformar em carrossel'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {createdRows.length > 0 && (
+                    <div className="links-section">
+                      <div className="section-header">
+                        <div className="section-icon supabase-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 5h14v2H3zM3 9h14v2H3zM3 13h14v2H3z" />
+                          </svg>
+                        </div>
+                        <div className="section-info">
+                          <h4 className="section-title">Fileiras criadas</h4>
+                          <p className="section-count">{createdRows.length} carrossel(is)</p>
+                        </div>
+                      </div>
+                      <div className="links-list">
+                        {createdRows.map((row, idx) => (
+                          <div key={row.id} className="link-item">
+                            <div className="link-header">
+                              <span className="link-number">#{idx + 1}</span>
+                              <span className="link-alt">Carrossel • {row.srcs.length} imagem(ns)</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {/* Seção de Links do Supabase */}
                   {supabaseLinks.length > 0 && (
                     <div className="links-section">
@@ -612,6 +1138,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                 <div className="edit-link-container">
                                   <input
                                     type="text"
+                                    id={`edit-link-${link.index}`}
+                                    name={`edit-link-${link.index}`}
                                     value={editingLinkValue}
                                     onChange={(e) => setEditingLinkValue(e.target.value)}
                                     className="edit-link-input"
@@ -638,6 +1166,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                 <>
                                   <input
                                     type="text"
+                                    id={`link-input-${link.index}`}
+                                    name={`link-input-${link.index}`}
                                     value={link.src}
                                     readOnly
                                     className="link-input"
@@ -711,6 +1241,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                 <div className="edit-link-container">
                                   <input
                                     type="text"
+                                    id={`edit-link-${link.index}`}
+                                    name={`edit-link-${link.index}`}
                                     value={editingLinkValue}
                                     onChange={(e) => setEditingLinkValue(e.target.value)}
                                     className="edit-link-input"
@@ -737,6 +1269,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                 <>
                                   <input
                                     type="text"
+                                    id={`link-input-${link.index}`}
+                                    name={`link-input-${link.index}`}
                                     value={link.src}
                                     readOnly
                                     className="link-input"
@@ -1003,6 +1537,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           justify-content: space-between;
           align-items: flex-start;
           gap: 1rem;
+          flex-wrap: wrap;
         }
 
         .header-content {
@@ -1032,6 +1567,25 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           transform: rotate(180deg);
         }
 
+        .build-carousel-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
+          background-color: rgba(127, 219, 63, 0.15);
+          border: 1px solid rgba(127, 219, 63, 0.35);
+          border-radius: 0.5rem;
+          color: ${themeProp?.colors?.primary || '#7fdb3f'};
+          cursor: pointer;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .build-carousel-btn:hover {
+          background-color: rgba(127, 219, 63, 0.25);
+          transform: translateY(-1px);
+        }
+
         .links-title {
           font-size: 1.25rem;
           font-weight: 600;
@@ -1042,6 +1596,131 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         .links-description {
           color: ${themeProp?.colors?.textSecondary || '#cccccc'};
           font-size: 0.875rem;
+        }
+
+        /* Modal de carrossel */
+        .carousel-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+        }
+
+        .carousel-modal {
+          width: min(900px, 92vw);
+          max-height: 86vh;
+          overflow: hidden;
+          background: rgba(24, 24, 28, 0.98);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 0.75rem;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .carousel-modal-header {
+          padding: 1rem 1.25rem;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+
+        .carousel-modal-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: ${themeProp?.colors?.textPrimary || '#ffffff'};
+        }
+
+        .carousel-modal-body {
+          padding: 1rem;
+          overflow: auto;
+        }
+
+        .carousel-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 0.75rem;
+        }
+
+        .carousel-item {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 0.5rem;
+          padding: 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .carousel-item img {
+          width: 100%;
+          height: 90px;
+          object-fit: cover;
+          border-radius: 0.375rem;
+        }
+
+        .carousel-item-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .carousel-checkbox {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          color: ${themeProp?.colors?.textSecondary || '#cccccc'};
+          font-size: 0.875rem;
+        }
+
+        .carousel-order-btns {
+          display: inline-flex;
+          gap: 0.25rem;
+        }
+
+        .order-btn {
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 0.375rem;
+          color: ${themeProp?.colors?.textPrimary || '#ffffff'};
+          cursor: pointer;
+        }
+
+        .carousel-modal-footer {
+          padding: 0.75rem 1rem;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.5rem;
+        }
+
+        .btn-cancel {
+          padding: 0.5rem 0.9rem;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: ${themeProp?.colors?.textPrimary || '#ffffff'};
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+
+        .btn-insert {
+          padding: 0.5rem 0.9rem;
+          background: ${themeProp?.colors?.primary || '#7fdb3f'};
+          border: none;
+          color: #000;
+          font-weight: 600;
+          border-radius: 0.5rem;
+          cursor: pointer;
         }
 
         .no-links {
@@ -1326,6 +2005,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         /* Responsividade para seções */
         @media (max-width: 768px) {
+          .links-header {
+            align-items: stretch;
+          }
+
+          .build-carousel-btn, .refresh-btn {
+            width: 100%;
+          }
+
           .links-section {
             padding: 1rem;
           }
@@ -1375,6 +2062,60 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         .editor-area p {
           margin: 0.5rem 0;
+          text-align: justify;
+          text-justify: inter-word;
+          hyphens: auto;
+        }
+
+        /* Reduzir espaçamento de parágrafos no mobile */
+        @media (max-width: 768px) {
+          .editor-area p {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area h1,
+          .editor-area h2,
+          .editor-area h3,
+          .editor-area h4,
+          .editor-area h5,
+          .editor-area h6 {
+            margin: 0.5rem 0 0.25rem 0 !important;
+          }
+
+          /* Sobrescrever estilos inline do Word/Office para parágrafos */
+          .editor-area p[style*="margin"] {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area p[style*="margin-top"] {
+            margin-top: 0.25rem !important;
+          }
+
+          .editor-area p[style*="margin-bottom"] {
+            margin-bottom: 0.25rem !important;
+          }
+
+          /* Sobrescrever classes específicas do Word */
+          .editor-area .MsoNormal {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area p.MsoNormal {
+            margin: 0.25rem 0 !important;
+          }
+
+          /* Sobrescrever qualquer elemento com margem */
+          .editor-area *[style*="margin"] {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area *[style*="margin-top"] {
+            margin-top: 0.25rem !important;
+          }
+
+          .editor-area *[style*="margin-bottom"] {
+            margin-bottom: 0.25rem !important;
+          }
         }
 
         .editor-area ul,
@@ -1387,6 +2128,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           margin: 0.25rem 0;
         }
 
+        /* Reduzir espaçamento de listas no mobile */
+        @media (max-width: 768px) {
+          .editor-area ul,
+          .editor-area ol {
+            margin: 0.25rem 0 !important;
+            padding-left: 1rem !important;
+          }
+
+          .editor-area li {
+            margin: 0.125rem 0 !important;
+          }
+        }
+
         .editor-area a {
           color: ${themeProp?.colors?.primary || '#7fdb3f'};
           text-decoration: underline;
@@ -1396,9 +2150,59 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           max-width: 100%;
           height: auto;
           border-radius: 0.5rem;
-          margin: 1rem 0;
+          margin: 0.5rem 0;
           cursor: pointer;
           transition: all 0.2s ease;
+        }
+
+        /* Reduzir espaçamento de imagens no mobile */
+        @media (max-width: 768px) {
+          .editor-area img {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area p + img,
+          .editor-area img + p {
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+          }
+
+          .editor-area h1 + img,
+          .editor-area h2 + img,
+          .editor-area h3 + img,
+          .editor-area img + h1,
+          .editor-area img + h2,
+          .editor-area img + h3 {
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+          }
+
+          /* Sobrescrever estilos inline do Word/Office */
+          .editor-area img[style*="margin"] {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area img[style*="margin-top"] {
+            margin-top: 0.25rem !important;
+          }
+
+          .editor-area img[style*="margin-bottom"] {
+            margin-bottom: 0.25rem !important;
+          }
+
+          /* Sobrescrever tabelas do Word */
+          .editor-area table img {
+            margin: 0.25rem 0 !important;
+          }
+
+          .editor-area table td img {
+            margin: 0.25rem 0 !important;
+          }
+
+          /* Sobrescrever qualquer elemento com imagem */
+          .editor-area * img {
+            margin: 0.25rem 0 !important;
+          }
         }
 
         .editor-area img:hover {
@@ -1407,6 +2211,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         .editor-area img.selected {
           box-shadow: 0 0 0 3px ${themeProp?.colors?.primary || '#7fdb3f'};
+        }
+
+        /* Tabela de "molde" do carrossel no editor */
+        .editor-area table.image-carousel-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0.5rem;
+          margin: 0.5rem 0;
+        }
+        .editor-area table.image-carousel-table td {
+          padding: 0.25rem;
+          vertical-align: middle;
         }
 
         .editor-area blockquote {
@@ -1458,6 +2274,159 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           }
         }
       `}</style>
+
+      {isCarouselModalOpen && (
+        <div className="carousel-modal-overlay" onClick={() => setIsCarouselModalOpen(false)}>
+          <div className="carousel-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="carousel-modal-header">
+              <div className="carousel-modal-title">Criar Carrossel</div>
+              <button className="btn-cancel" onClick={() => setIsCarouselModalOpen(false)}>Fechar</button>
+            </div>
+            <div className="carousel-modal-body">
+              {carouselCandidates.length === 0 ? (
+                <p style={{ color: themeProp?.colors?.textSecondary || '#ccc' }}>Nenhuma imagem hospedada encontrada nesta página. Use o botão "Inserir Imagem no Conteúdo" acima do editor para enviar imagens.</p>
+              ) : (
+                <div className="carousel-grid">
+                  {carouselCandidates.map((c) => (
+                    <div key={c.src} className="carousel-item">
+                      <img src={c.src} alt={c.alt} />
+                      <div className="carousel-item-actions">
+                        <label className="carousel-checkbox">
+                          <input 
+                            type="checkbox" 
+                            id={`carousel-checkbox-${c.src}`}
+                            checked={selectedCarousel.includes(c.src)} 
+                            onChange={() => toggleCarouselItem(c.src)} 
+                          />
+                          Incluir
+                        </label>
+                        {selectedCarousel.includes(c.src) && (
+                          <div className="carousel-order-btns">
+                            <button type="button" className="order-btn" onClick={() => moveCarouselItem(c.src, 'up')}>↑</button>
+                            <button type="button" className="order-btn" onClick={() => moveCarouselItem(c.src, 'down')}>↓</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="carousel-modal-footer">
+              <button className="btn-cancel" onClick={() => setIsCarouselModalOpen(false)}>Cancelar</button>
+              <button className="btn-insert" onClick={insertCarouselIntoEditor} disabled={selectedCarousel.length === 0}>Inserir carrossel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUrlCarouselModalOpen && (
+        <div className="carousel-modal-overlay" onClick={() => setIsUrlCarouselModalOpen(false)}>
+          <div className="carousel-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="carousel-modal-header">
+              <div className="carousel-modal-title">Carrossel por links</div>
+              <button className="btn-cancel" onClick={() => setIsUrlCarouselModalOpen(false)}>Fechar</button>
+            </div>
+            <div className="carousel-modal-body">
+              <div style={{ marginBottom: '0.75rem', color: themeProp?.colors?.textSecondary || '#ccc' }}>
+                Cole vários links (um por linha) ou adicione/remova campos. Reordene com ↑ ↓.
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <textarea
+                  id="bulk-urls-textarea"
+                  name="bulk-urls-textarea"
+                  rows={4}
+                  placeholder="Cole aqui vários links (um por linha)"
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData('text/plain');
+                    if (text && text.includes('\n')) {
+                      e.preventDefault();
+                      bulkPasteUrls(text);
+                    }
+                  }}
+                  className="html-editor"
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="btn-insert" onClick={() => bulkPasteUrls(prompt('Cole os links (um por linha):', '') || '')}>Colar</button>
+              </div>
+              {urlFields.map((value, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    id={`url-field-${idx}`}
+                    name={`url-field-${idx}`}
+                    value={value}
+                    onChange={e => updateUrlField(idx, e.target.value)}
+                    placeholder={`Link da imagem #${idx + 1}`}
+                    className="edit-link-input" 
+                    style={{ flex: 1 }}
+                  />
+                  <button type="button" className="order-btn" onClick={() => moveUrlField(idx, 'up')}>↑</button>
+                  <button type="button" className="order-btn" onClick={() => moveUrlField(idx, 'down')}>↓</button>
+                  <button type="button" className="btn-cancel" onClick={() => removeUrlField(idx)}>Remover</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                <button type="button" className="btn-cancel" onClick={addUrlField}>Adicionar link</button>
+                <span style={{ color: themeProp?.colors?.textSecondary || '#ccc', fontSize: '0.9rem' }}>{urlFields.length} link(s)</span>
+              </div>
+            </div>
+            <div className="carousel-modal-footer">
+              <button className="btn-cancel" onClick={() => setIsUrlCarouselModalOpen(false)}>Cancelar</button>
+              <button className="btn-insert" onClick={insertUrlCarousel} disabled={urlFields.filter(Boolean).length === 0}>Inserir carrossel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEmptyCarouselModalOpen && (
+        <div className="carousel-modal-overlay" onClick={() => setIsEmptyCarouselModalOpen(false)}>
+          <div className="carousel-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="carousel-modal-header">
+              <div className="carousel-modal-title">Criar carrossel vazio</div>
+              <button className="btn-cancel" onClick={() => setIsEmptyCarouselModalOpen(false)}>Fechar</button>
+            </div>
+            <div className="carousel-modal-body">
+              <div style={{ marginBottom: '0.75rem', color: themeProp?.colors?.textSecondary || '#ccc' }}>
+                Defina quantos slots (imagens) o carrossel terá. Depois você poderá editar os links na aba Links.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label htmlFor="empty-slots" className="sr-only">Número de slots do carrossel</label>
+                <input 
+                  type="number" 
+                  id="empty-slots"
+                  min={1} 
+                  max={20} 
+                  value={emptySlots} 
+                  onChange={(e) => setEmptySlots(Math.max(1, Math.min(20, parseInt(e.target.value || '1', 10))))} 
+                  className="edit-link-input" 
+                  style={{ width: 120 }} 
+                />
+                <span style={{ color: themeProp?.colors?.textSecondary || '#ccc' }}>imagem(ns)</span>
+              </div>
+            </div>
+            <div className="carousel-modal-footer">
+              <button className="btn-cancel" onClick={() => setIsEmptyCarouselModalOpen(false)}>Cancelar</button>
+              <button className="btn-insert" onClick={() => {
+                const imgs = Array.from({ length: emptySlots }).map((_, i) => `<img src="" alt="Imagem ${i + 1}" />`).join('');
+                const html = `
+                  <div class=\"simple-carousel\" data-type=\"simple-carousel\">
+                    <div class=\"simple-carousel-track\">${imgs}</div>
+                  </div>
+                `;
+                document.execCommand('insertHTML', false, html);
+                handleInput();
+                setIsEmptyCarouselModalOpen(false);
+                // Atualizar a aba Links para permitir preencher os URLs
+                setTimeout(() => {
+                  switchToLinks();
+                  refreshLinksCache();
+                }, 100);
+              }}>Inserir carrossel vazio</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

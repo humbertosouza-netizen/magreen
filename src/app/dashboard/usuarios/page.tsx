@@ -562,7 +562,10 @@ export default function UsuariosPage() {
           <div className="p-4">
             <div className="flex items-center">
               <div className="relative flex-1">
+                <label htmlFor="search-users" className="sr-only">Buscar usuários</label>
                 <input
+                  id="search-users"
+                  name="search-users"
                   type="text"
                   placeholder="Buscar por nome ou email..."
                   className="w-full px-5 py-3 rounded-full text-white"
@@ -1031,10 +1034,11 @@ export default function UsuariosPage() {
                   </div>
                   
                   <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1 text-white">
+                    <label htmlFor="nickname" className="block text-sm font-medium mb-1 text-white">
                       Nickname
                     </label>
                     <input
+                      id="nickname"
                       type="text"
                       name="nickname"
                       value={novoUsuario.nickname}
@@ -1050,10 +1054,11 @@ export default function UsuariosPage() {
                   </div>
                   
                   <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1 text-white">
+                    <label htmlFor="instagram" className="block text-sm font-medium mb-1 text-white">
                       Instagram (@ ou link)
                     </label>
                     <input
+                      id="instagram"
                       type="text"
                       name="instagram"
                       value={novoUsuario.instagram || ''}

@@ -1,6 +1,10 @@
 import { supabase } from './supabase';
 import { UserProfile, UserRole } from '@/types/user';
 
+// Cache simples para evitar múltiplas chamadas desnecessárias
+let profileCache: { [userId: string]: { profile: UserProfile | null, timestamp: number } } = {};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
 // Buscar perfil do usuário atual
 export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   try {
@@ -11,22 +15,34 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       return null;
     }
     
-    console.log('Usuário autenticado, ID:', data.session.user.id);
+    const userId = data.session.user.id;
+    console.log('Usuário autenticado, ID:', userId);
+    
+    // Verificar cache primeiro
+    const cached = profileCache[userId];
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('Usando perfil do cache');
+      return cached.profile;
+    }
     
     // Usar select específico com todos os campos necessários
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', data.session.user.id)
+      .eq('id', userId)
       .single();
     
     if (error) {
       console.error('Erro ao buscar perfil:', error.message);
+      // Cache resultado negativo por menos tempo
+      profileCache[userId] = { profile: null, timestamp: Date.now() };
       return null;
     }
     
     if (!profile) {
-      console.log('Perfil não encontrado para o usuário:', data.session.user.id);
+      console.log('Perfil não encontrado para o usuário:', userId);
+      // Cache resultado negativo por menos tempo
+      profileCache[userId] = { profile: null, timestamp: Date.now() };
       return null;
     }
     
@@ -41,11 +57,23 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       banned: profile.banned || false
     };
     
+    // Cache do perfil
+    profileCache[userId] = { profile: userProfile, timestamp: Date.now() };
+    
     console.log('Perfil carregado com sucesso:', userProfile);
     return userProfile;
   } catch (error) {
     console.error('Erro ao buscar perfil de usuário:', error);
     return null;
+  }
+}
+
+// Função para limpar cache quando necessário
+export function clearProfileCache(userId?: string) {
+  if (userId) {
+    delete profileCache[userId];
+  } else {
+    profileCache = {};
   }
 }
 

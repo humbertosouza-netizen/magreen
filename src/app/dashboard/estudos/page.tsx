@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/styles/colors';
@@ -54,6 +54,39 @@ export default function AdminEstudosPage() {
   const [activeTab, setActiveTab] = useState<'cursos' | 'novo' | 'visualizar'>('cursos');
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
   const [viewingCurso, setViewingCurso] = useState<Curso | null>(null);
+  
+  // Busca e paginação (cursos)
+  const [searchQuery, setSearchQuery] = usePageState<string>('estudos_searchQuery', '');
+  const [pageSize, setPageSize] = usePageState<number>('estudos_pageSize', 10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, pageSize]);
+  
+  const filteredCursos = useMemo(() => {
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (!q) return cursos;
+    return cursos.filter(c => {
+      const fields = [c.titulo, c.descricao, c.categoria, c.instrutor, c.nivel];
+      return fields.some(v => (v || '').toString().toLowerCase().includes(q));
+    });
+  }, [cursos, searchQuery]);
+  
+  const totalPages = useMemo(() => {
+    const total = Math.ceil((filteredCursos.length || 0) / (pageSize || 1));
+    return Math.max(1, total || 1);
+  }, [filteredCursos.length, pageSize]);
+  
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+  
+  const paginatedCursos = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredCursos.slice(start, end);
+  }, [filteredCursos, currentPage, pageSize]);
   
   // Estados para o formulário de novo curso
   const [titulo, setTitulo] = usePageState<string>('estudos_titulo', '');
@@ -767,42 +800,68 @@ export default function AdminEstudosPage() {
           </div>
         )}
         
-        {/* Cabeçalho da página */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ 
-              background: 'linear-gradient(135deg, #E0A800 0%, #FFD700 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              {isAdmin ? 'Gerenciar Cursos' : 'Cursos Disponíveis'}
-            </h1>
-            <p className="text-sm md:text-base" style={{ color: theme.colors.textSecondary }}>
-              {isAdmin ? 'Crie e gerencie cursos para a plataforma' : 'Explore os cursos disponíveis para seu aprendizado'}
-            </p>
+        {/* Cabeçalho com layout padronizado (Blog/Meu Cultivo) */}
+        <div 
+          className="mb-6 md:mb-10 relative overflow-hidden rounded-xl p-4 md:p-8"
+          style={{
+            background: `linear-gradient(135deg, ${theme.colors.primary}90, ${theme.colors.accent}70)`,
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <div 
+            className="absolute inset-0 z-0 opacity-10" 
+            style={{
+              backgroundImage: `url('/images/leaf-pattern-bg.svg')`,
+              backgroundSize: '100px',
+              backgroundRepeat: 'repeat',
+            }}
+          />
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 
+                className="text-2xl md:text-3xl xl:text-4xl font-bold mb-2"
+                style={{ 
+                  color: '#fff',
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                }}
+              >
+                Estudos
+              </h1>
+              <p 
+                className="text-sm md:text-lg"
+                style={{ 
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                {isAdmin ? 'Gerenciar material de estudos e conteúdo educacional' : 'Material de estudos disponível para seu aprendizado'}
+              </p>
+            </div>
+
+            {/* Ações */}
+            {isAdmin && (
+              <button
+                className="mt-4 md:mt-0 px-4 md:px-6 py-2 md:py-3 rounded-full text-sm md:text-base font-medium transition-all transform hover:scale-105 flex items-center gap-2"
+                style={{ 
+                  background: `linear-gradient(135deg, #F8CC3C, #E3A507)`,
+                  color: '#1F1F1F',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 10px rgba(248, 204, 60, 0.3)',
+                  touchAction: 'manipulation'
+                }}
+                onClick={() => {
+                  resetForm();
+                  setActiveTab('novo');
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                <span className="hidden md:inline">Adicionar Novo Material</span>
+                <span className="md:hidden">Novo</span>
+              </button>
+            )}
           </div>
-          
-          {/* Botão de adicionar novo curso - apenas para admins */}
-          {isAdmin && (
-            <button
-              className="px-4 py-2 md:py-3 rounded-full text-sm font-medium transition-all transform hover:scale-105 flex items-center gap-2"
-              style={{ 
-                background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.accent})`,
-                boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)',
-                touchAction: "manipulation"
-              }}
-              onClick={() => {
-                resetForm();
-                setActiveTab('novo');
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              <span className="hidden md:inline">Adicionar Novo Curso</span>
-              <span className="md:hidden">Novo Curso</span>
-            </button>
-          )}
         </div>
       
         {/* Abas de navegação */}
@@ -820,8 +879,8 @@ export default function AdminEstudosPage() {
               }}
               onClick={handleVoltarParaLista}
             >
-              <span className="hidden md:inline">Cursos Disponíveis</span>
-              <span className="md:hidden">Cursos</span>
+              <span className="hidden md:inline">Material de Estudos</span>
+              <span className="md:hidden">Material de Estudos</span>
             </button>
             {/* Aba de novo/editar curso - apenas para admins */}
             {isAdmin && (
@@ -837,7 +896,7 @@ export default function AdminEstudosPage() {
                 }}
                 onClick={() => setActiveTab('novo')}
               >
-                <span className="hidden md:inline">{editingCurso ? 'Editar Curso' : 'Novo Curso'}</span>
+                <span className="hidden md:inline">{editingCurso ? 'Editar Material' : 'Novo Material'}</span>
                 <span className="md:hidden">{editingCurso ? 'Editar' : 'Novo'}</span>
               </button>
             )}
@@ -854,7 +913,7 @@ export default function AdminEstudosPage() {
                 }}
                 onClick={() => setActiveTab('visualizar')}
               >
-                <span className="hidden md:inline">Visualizar Curso</span>
+                <span className="hidden md:inline">Visualizar Material</span>
                 <span className="md:hidden">Visualizar</span>
               </button>
             )}
@@ -864,17 +923,49 @@ export default function AdminEstudosPage() {
         {/* Conteúdo baseado na aba ativa */}
         {activeTab === 'cursos' ? (
           <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-between mb-6">
               <h2 className="text-xl font-semibold" style={{ 
                 background: 'linear-gradient(135deg, #E0A800 0%, #FFD700 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
-              }}>Lista de Cursos</h2>
+              }}>Material de estudo</h2>
+              <div className="flex-1 md:max-w-md">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por título, descrição, categoria, instrutor ou nível..."
+                  className="w-full px-4 py-3 rounded-lg text-white"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm" style={{ color: theme.colors.textSecondary }}>Itens por página</label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="px-3 py-2 rounded-lg text-white"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    outline: 'none',
+                  }}
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
             </div>
             
             {/* Grid de cursos em cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-10">
-              {cursos.map((curso) => (
+              {paginatedCursos.map((curso) => (
                 <div 
                   key={curso.id} 
                   className="rounded-lg overflow-hidden border border-gray-800 shadow-xl transition-all hover:transform hover:scale-[1.02] hover:shadow-2xl"
@@ -983,13 +1074,13 @@ export default function AdminEstudosPage() {
                               onClick={() => handleEditCurso(curso)}
                               className="px-2 py-1 bg-gray-800 text-blue-400 rounded text-xs transition-all hover:bg-gray-700"
                             >
-                              Editar
+                              Editar Material
                             </button>
                             <button
                               onClick={() => handleDeleteCurso(curso.id)}
                               className="px-2 py-1 bg-red-800 text-red-400 rounded text-xs transition-all hover:bg-red-700"
                             >
-                              Excluir
+                              Excluir Material
                             </button>
                           </>
                         )}
@@ -1000,6 +1091,39 @@ export default function AdminEstudosPage() {
               ))}
             </div>
             
+            {/* Paginação */}
+            {filteredCursos.length > 0 && (
+              <div className="flex items-center justify-center gap-3 mt-2 mb-6">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage === 1 ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Anterior
+                </button>
+                <span className="text-sm" style={{ color: theme.colors.textSecondary }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage >= totalPages ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
+
             {/* Tabela de cursos mantida como alternativa */}
             <details>
               <summary className="cursor-pointer text-amber-400 mb-4">Visualizar em forma de tabela</summary>
@@ -1031,7 +1155,7 @@ export default function AdminEstudosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y" style={{ borderColor: '#333' }}>
-                    {cursos.map((curso) => (
+                    {paginatedCursos.map((curso) => (
                       <tr key={curso.id} style={{ borderColor: '#333' }}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -1084,7 +1208,7 @@ export default function AdminEstudosPage() {
                                 border: '1px solid rgba(224, 168, 0, 0.3)'
                               }}
                             >
-                              Visualizar
+                              Visualizar Material
                             </button>
                             {/* Botões de administração apenas para admins */}
                             {isAdmin && (

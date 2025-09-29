@@ -185,7 +185,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
         .carousel-container {
           position: relative;
           width: 100%;
-          height: 300px;
+          height: 420px;
           border-radius: 0.5rem;
           overflow: hidden;
           background-color: rgba(0, 0, 0, 0.1);
@@ -317,7 +317,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
           }
 
           .carousel-container {
-            height: 400px;
+            height: 520px;
           }
         }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { colors } from '@/styles/colors';
 import { useUser } from '@/contexts/UserContext';
@@ -31,7 +31,7 @@ interface Article {
 export default function DashboardBlogPage() {
   const { hasPermission, isAdmin, user } = useUser();
   const [activeTab, setActiveTab] = usePageState<'todos' | 'publicados' | 'rascunhos'>('blog_activeTab', 'todos');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = usePageState<string>('blog_searchQuery', '');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -39,9 +39,46 @@ export default function DashboardBlogPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
 
-  // Forçar atualização do título
+  // Estados para paginação
+  const [pageSize, setPageSize] = usePageState<number>('blog_pageSize', 10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset da página quando mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, pageSize, activeTab]);
+
+  // Lógica de filtro e paginação
+  const filteredArticles = useMemo(() => {
+    const query = (searchQuery || '').trim().toLowerCase();
+    if (!query) return articles;
+    return articles.filter(article => {
+      const fields = [article.titulo, article.resumo, article.categoria, article.autor_nome];
+      const tags = article.tags || [];
+      return fields.some(v => (v || '').toString().toLowerCase().includes(query)) ||
+             tags.some(tag => tag.toLowerCase().includes(query));
+    });
+  }, [articles, searchQuery]);
+
+  const totalPages = useMemo(() => {
+    const total = Math.ceil((filteredArticles.length || 0) / (pageSize || 1));
+    return Math.max(1, total || 1);
+  }, [filteredArticles.length, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
+  const paginatedArticles = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredArticles.slice(start, end);
+  }, [filteredArticles, currentPage, pageSize]);
+
+  // Forçar atualização do título e reset de scroll
   useEffect(() => {
     document.title = 'Mag Green';
+    window.scrollTo({ top: 0 });
   }, []);
 
   useEffect(() => {
@@ -71,7 +108,7 @@ export default function DashboardBlogPage() {
         query = query.eq('publicado', true);
       } else {
         // Para admins, aplicar filtros normais
-        if (activeTab === 'publicados') {
+      if (activeTab === 'publicados') {
         query = query.eq('publicado', true);
       } else if (activeTab === 'rascunhos') {
         query = query.eq('publicado', false);
@@ -154,7 +191,7 @@ export default function DashboardBlogPage() {
 
   async function togglePublicacao(postId: string, currentStatus: boolean) {
     try {
-      let updateData: any = { 
+      const updateData: any = { 
         publicado: !currentStatus 
       };
       
@@ -217,7 +254,14 @@ export default function DashboardBlogPage() {
   }
 
   return (
-    <div className="relative">
+    <div 
+      className="relative"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100dvh'
+      }}
+    >
       <div 
         className="absolute inset-0 z-0 opacity-5 pointer-events-none" 
         style={{
@@ -239,7 +283,12 @@ export default function DashboardBlogPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-10">
+      <div 
+        className="page-content relative z-10 max-w-7xl mx-auto px-4 py-6"
+        style={{
+          flex: '1 0 auto'
+        }}
+      >
         <div 
           className="mb-6 md:mb-10 relative overflow-hidden rounded-xl p-4 md:p-8"
           style={{
@@ -437,6 +486,42 @@ export default function DashboardBlogPage() {
           </div>
         </div>
 
+        {/* Controles de busca e paginação */}
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por título, resumo, categoria, autor ou tags..."
+              className="w-full px-4 py-3 rounded-lg text-white"
+              style={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                outline: 'none',
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm" style={{ color: theme.colors.textSecondary }}>Itens por página</label>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="px-3 py-2 rounded-lg text-white"
+              style={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                outline: 'none',
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+
         {loading && (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent" 
@@ -444,7 +529,7 @@ export default function DashboardBlogPage() {
           </div>
         )}
 
-        {!loading && articles.length === 0 && !error && (
+        {!loading && filteredArticles.length === 0 && !error && (
           <>
             {activeTab === 'todos' && searchQuery === '' && (
               <div className="text-center py-16 rounded-xl overflow-hidden" 
@@ -561,19 +646,38 @@ export default function DashboardBlogPage() {
                 </button>
               </div>
             )}
+            {searchQuery !== '' && (
+              <div className="text-center py-12 rounded-xl mx-4 md:mx-0" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <p className="text-lg" style={{ color: theme.colors.textSecondary }}>Nenhum artigo encontrado para a pesquisa.</p>
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="mt-3 px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: theme.colors.textPrimary
+                  }}
+                >
+                  Limpar busca
+                </button>
+              </div>
+            )}
           </>
         )}
 
-        {articles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mb-4 md:mb-6 lg:mb-8">
-            {articles.map(article => (
-              <div key={article.id} className="rounded-xl overflow-hidden transition-all hover:shadow-xl"
+        {filteredArticles.length > 0 ? (
+          <>
+            <div className="blog-cards-grid mb-4 md:mb-6 lg:mb-8">
+              {paginatedArticles.map(article => (
+              <div 
+                key={article.id} 
+                className="blog-card rounded-xl overflow-hidden transition-all hover:shadow-xl"
                 style={{
                   background: 'rgba(255, 255, 255, 0.05)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
-                }}>
+                }}
+              >
                 {article.imagem_url ? (
                   <div className="h-40 md:h-48 overflow-hidden">
                     <Link 
@@ -601,7 +705,7 @@ export default function DashboardBlogPage() {
                   </div>
                 )}
                 
-                <div className="p-3 md:p-5">
+                <div className="blog-card-content p-3 md:p-5">
                   <div className="flex justify-between items-center mb-2 md:mb-3">
                     <span 
                       className="px-2 py-1 text-xs rounded-full"
@@ -621,7 +725,12 @@ export default function DashboardBlogPage() {
                       </span>
                     )}
                   </h3>
-                  <p className="text-xs md:text-sm mb-3 md:mb-4 line-clamp-2 md:line-clamp-3" style={{ color: theme.colors.textSecondary }}>{article.resumo}</p>
+                  <p 
+                    className="blog-card-description text-xs md:text-sm mb-3 md:mb-4"
+                    style={{ color: theme.colors.textSecondary }}
+                  >
+                    {article.resumo}
+                  </p>
                   
                   <div className="flex flex-wrap gap-1 md:gap-2 mb-3 md:mb-4">
                     {article.tags && article.tags.slice(0, 3).map((tag, index) => (
@@ -644,7 +753,7 @@ export default function DashboardBlogPage() {
                   </div>
                 </div>
                 
-                <div className="p-2 md:p-3 flex justify-between items-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+                <div className="blog-card-footer p-2 md:p-3 flex justify-between items-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
                   {/* Botões de ação apenas para admins */}
                   {isAdmin ? (
                     <div className="flex space-x-1 md:space-x-2">
@@ -713,8 +822,42 @@ export default function DashboardBlogPage() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            
+            {/* Paginação */}
+            {filteredArticles.length > 0 && (
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage === 1 ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Anterior
+                </button>
+                <span className="text-sm" style={{ color: theme.colors.textSecondary }}>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-4 py-2 rounded-full text-sm font-medium"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: currentPage >= totalPages ? 'rgba(255,255,255,0.4)' : '#fff'
+                  }}
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-16 rounded-xl overflow-hidden" 
             style={{

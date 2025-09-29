@@ -6,5 +6,10 @@
       "main": true
     }
   },
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/process-word/route.ts": {
+      "maxDuration": 60
+    }
+  }
 } 

@@ -476,7 +476,7 @@ export default function ProdutosPage() {
                   </h2>
                   
                   <p 
-                    className="text-sm mb-4 md:mb-5 line-clamp-3" 
+                    className="text-sm mb-4 md:mb-5" 
                     style={{ color: theme.colors.textSecondary }}
                   >
                     {produto.descricao}

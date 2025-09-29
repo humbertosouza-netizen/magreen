@@ -139,6 +139,7 @@ export default function SignUp() {
                 transition: theme.transitions.medium
               }}
               placeholder="seu@email.com"
+              autoComplete="email"
             />
           </div>
           
@@ -165,6 +166,7 @@ export default function SignUp() {
                 transition: theme.transitions.medium
               }}
               placeholder="Seu apelido"
+              autoComplete="username"
             />
           </div>
 
@@ -190,6 +192,7 @@ export default function SignUp() {
                 transition: theme.transitions.medium
               }}
               placeholder="@seuinsta ou instagram.com/seuinsta"
+              autoComplete="url"
             />
           </div>
 
@@ -216,6 +219,7 @@ export default function SignUp() {
                 transition: theme.transitions.medium
               }}
               placeholder="••••••••"
+              autoComplete="new-password"
             />
           </div>
 
@@ -231,6 +235,7 @@ export default function SignUp() {
                 fontFamily: theme.typography.fontFamily.heading,
                 fontWeight: theme.typography.fontWeight.semiBold
               }}
+              aria-label={loading ? 'Criando conta, aguarde...' : 'Criar nova conta na plataforma'}
             >
               {loading ? 'Cadastrando...' : 'Cadastrar'}
             </button>

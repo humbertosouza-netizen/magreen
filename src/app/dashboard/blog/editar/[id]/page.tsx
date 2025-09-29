@@ -258,7 +258,7 @@ export default function EditarBlogPost() {
     const { data: publicData } = supabase.storage.from('blog-conteudo').getPublicUrl(filePath);
     
     // Inserir a imagem no conteúdo como HTML
-    const imageHtml = `<p><img src="${publicData.publicUrl}" alt="${file.name}" style="max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0;" /></p>`;
+    const imageHtml = `<p style="text-align: center;"><img src="${publicData.publicUrl}" alt="${file.name}" style="display:block; width:100%; max-width:100%; height:auto; border-radius:0.5rem; margin:1rem auto;" /></p>`;
     
     // Inserir no final do conteúdo
     setConteudo(prev => prev + imageHtml);
@@ -359,6 +359,7 @@ export default function EditarBlogPost() {
               </label>
               <input
                 id="titulo"
+                name="titulo"
                 type="text"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
@@ -370,6 +371,7 @@ export default function EditarBlogPost() {
                 }}
                 required
                 placeholder="Digite o título do post"
+                autoComplete="off"
               />
             </div>
             
@@ -379,6 +381,7 @@ export default function EditarBlogPost() {
               </label>
               <textarea
                 id="resumo"
+                name="resumo"
                 rows={3}
                 value={resumo}
                 onChange={(e) => setResumo(e.target.value)}
@@ -390,11 +393,12 @@ export default function EditarBlogPost() {
                 }}
                 required
                 placeholder="Escreva um breve resumo do conteúdo"
+                autoComplete="off"
               />
             </div>
             
             <div className="mb-6">
-              <label htmlFor="conteudo" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                 Conteúdo *
               </label>
               
@@ -445,7 +449,7 @@ export default function EditarBlogPost() {
                   </h4>
                   <ClickableImageContent 
                     content={conteudo}
-                    className="text-sm prose prose-invert max-w-none"
+                    className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none"
                   />
                 </div>
               )}
@@ -458,6 +462,7 @@ export default function EditarBlogPost() {
                 </label>
                 <input
                   id="categoria"
+                  name="categoria"
                   type="text"
                   value={categoria}
                   onChange={(e) => setCategoria(e.target.value)}
@@ -468,6 +473,7 @@ export default function EditarBlogPost() {
                     outline: 'none',
                   }}
                   placeholder="Ex: Cultivo, Ferramentas, Notícias"
+                  autoComplete="off"
                 />
               </div>
               
@@ -477,6 +483,7 @@ export default function EditarBlogPost() {
                 </label>
                 <input
                   id="imagem"
+                  name="imagem"
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
@@ -527,6 +534,8 @@ export default function EditarBlogPost() {
               </div>
               <div className="flex">
                 <input
+                  id="tag-input"
+                  name="tag-input"
                   type="text"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
@@ -538,6 +547,7 @@ export default function EditarBlogPost() {
                     outline: 'none',
                   }}
                   placeholder="Digite uma tag e pressione Enter"
+                  autoComplete="off"
                 />
                 <button
                   type="button"
@@ -547,6 +557,7 @@ export default function EditarBlogPost() {
                     backgroundColor: 'rgba(255, 255, 255, 0.15)',
                     color: theme.colors.textPrimary
                   }}
+                  aria-label="Adicionar tag ao post"
                 >
                   Adicionar
                 </button>
@@ -556,6 +567,8 @@ export default function EditarBlogPost() {
             <div className="mb-8">
               <label className="flex items-center cursor-pointer">
                 <input
+                  id="publicar"
+                  name="publicar"
                   type="checkbox"
                   checked={publicar}
                   onChange={(e) => setPublicar(e.target.checked)}
@@ -599,6 +612,7 @@ export default function EditarBlogPost() {
                   fontWeight: 'bold',
                   boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
                 }}
+                aria-label={salvando ? 'Atualizando post, aguarde...' : 'Atualizar post do blog'}
               >
                 {salvando ? 'Salvando...' : 'Atualizar Post'}
               </button>

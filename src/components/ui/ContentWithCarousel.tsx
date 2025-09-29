@@ -15,67 +15,81 @@ const ContentWithCarousel: React.FC<ContentWithCarouselProps> = ({
   className = ''
 }) => {
   const { imageGroups, processedContent, hasMultipleImages } = useImageExtractor(content);
+  const shouldProcessPlaceholders = hasMultipleImages || (processedContent?.includes('image-carousel-placeholder') ?? false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current || !hasMultipleImages) return;
+    if (!containerRef.current || !shouldProcessPlaceholders) return;
 
     // Processar placeholders e substituir por carrosséis
     const placeholders = containerRef.current.querySelectorAll('.image-carousel-placeholder');
     
     placeholders.forEach((placeholder) => {
-      const groupId = placeholder.getAttribute('data-group-id');
       const imagesData = placeholder.getAttribute('data-images');
       
-      if (groupId && imagesData) {
-        try {
-          const images = JSON.parse(imagesData);
-          const group = imageGroups.find(g => g.id === groupId);
-          
-          if (group && images.length > 0) {
-            // Criar container para o carrossel
-            const carouselContainer = document.createElement('div');
-            carouselContainer.className = 'image-carousel-container';
-            carouselContainer.innerHTML = `
-              <div class="image-carousel mb-4" data-images='${JSON.stringify(images)}'>
-                <div class="carousel-container">
-                  <button class="carousel-button prev-button" aria-label="Imagem anterior">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <div class="image-container clickable-image" title="Clique para ampliar">
-                    <img src="${images[0]}" alt="Imagem 1 de ${images.length}" class="current-image" />
-                    <div class="image-counter">1 / ${images.length}</div>
-                  </div>
-                  <button class="carousel-button next-button" aria-label="Próxima imagem">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-                ${images.length > 1 ? `
-                <div class="carousel-indicators">
-                  ${images.map((_, index) => `
-                    <button class="indicator ${index === 0 ? 'active' : ''}" aria-label="Ir para imagem ${index + 1}"></button>
-                  `).join('')}
-                </div>
-                ` : ''}
-              </div>
-            `;
-            
-            // Substituir o placeholder pelo carrossel
-            placeholder.parentNode?.replaceChild(carouselContainer, placeholder);
-            
-            // Adicionar funcionalidade JavaScript ao carrossel
-            const carousel = carouselContainer.querySelector('.image-carousel');
-            if (carousel) {
-              addCarouselFunctionality(carousel, images);
-            }
-          }
-        } catch (error) {
-          console.error('Erro ao processar carrossel:', error);
-        }
+      if (!imagesData) return;
+      
+      let images: string[] = [];
+      try {
+        images = JSON.parse(imagesData);
+      } catch (e) {
+        images = [];
+      }
+      
+      // Fallback: se não houver imagens parseadas, tenta extrair imagens dentro do próprio placeholder (se houver)
+      if (!images || images.length === 0) {
+        const imgs = placeholder.querySelectorAll('img');
+        images = Array.from(imgs)
+          .map(img => img.getAttribute('src'))
+          .filter((src): src is string => Boolean(src));
+      }
+
+      if (!images || images.length === 0) return;
+
+      // Criar container para o carrossel (ou bloco de imagens se houver apenas uma)
+      const container = document.createElement('div');
+      container.className = 'image-carousel-container';
+      
+      if (images.length === 1) {
+        // Fallback simples: renderizar a imagem única
+        container.innerHTML = `<img src="${images[0]}" alt="Imagem" class="current-image" />`;
+        placeholder.parentNode?.replaceChild(container, placeholder);
+        return;
+      }
+      
+      container.innerHTML = `
+        <div class="image-carousel mb-4" data-images='${JSON.stringify(images)}'>
+          <div class="carousel-container">
+            <button class="carousel-button prev-button" aria-label="Imagem anterior">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div class="image-container clickable-image" title="Clique para ampliar">
+              <img src="${images[0]}" alt="Imagem 1 de ${images.length}" class="current-image" />
+              <div class="image-counter">1 / ${images.length}</div>
+            </div>
+            <button class="carousel-button next-button" aria-label="Próxima imagem">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <div class="carousel-indicators">
+            ${images.map((_, index) => `
+              <button class="indicator ${index === 0 ? 'active' : ''}" aria-label="Ir para imagem ${index + 1}"></button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      
+      // Substituir o placeholder pelo carrossel
+      placeholder.parentNode?.replaceChild(container, placeholder);
+      
+      // Adicionar funcionalidade JavaScript ao carrossel
+      const carousel = container.querySelector('.image-carousel');
+      if (carousel) {
+        addCarouselFunctionality(carousel, images);
       }
     });
   }, [processedContent, imageGroups, hasMultipleImages]);
@@ -167,7 +181,7 @@ const ContentWithCarousel: React.FC<ContentWithCarouselProps> = ({
   };
 
   // Se não há múltiplas imagens, renderizar normalmente
-  if (!hasMultipleImages) {
+  if (!shouldProcessPlaceholders) {
     return (
       <ClickableImageContent 
         content={content}
@@ -195,11 +209,12 @@ const ContentWithCarousel: React.FC<ContentWithCarouselProps> = ({
         
         /* Garantir que imagens individuais sejam responsivas */
         .content-with-carousel :global(img) {
-          max-width: 100%;
-          height: auto;
-          display: block;
-          margin: 1rem 0;
-          border-radius: 0.5rem;
+          display: block !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          height: auto !important;
+          margin: 1rem auto !important;
+          border-radius: 0.5rem !important;
         }
         
         /* Responsividade */

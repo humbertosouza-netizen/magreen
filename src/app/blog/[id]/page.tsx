@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { colors } from '@/styles/colors';
 import { supabase } from '@/lib/supabase';
 import ClickableImageContent from '@/components/ui/ClickableImageContent';
-import ContentWithCarousel from '@/components/ui/ContentWithCarousel';
+// Removido carrossel: usar apenas HTML clicável
 
 interface Article {
   id: string;
@@ -531,9 +531,9 @@ export default function ArticlePage() {
 
       {/* Conteúdo do artigo */}
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8 xl:gap-12">
           {/* Coluna principal */}
-          <div className="w-full lg:w-2/3">
+          <div className="w-full lg:w-3/4 xl:w-4/5">
             {/* Breadcrumb */}
             <div className="mb-4 sm:mb-6 flex items-center text-xs sm:text-sm text-gray-400">
               <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
@@ -558,7 +558,7 @@ export default function ArticlePage() {
             </div>
             
             {/* Título do artigo */}
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 leading-tight">{article.titulo}</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 leading-tight">{article.titulo}</h1>
             
             {/* Autor */}
             <div className="flex items-center mb-6 sm:mb-8">
@@ -579,7 +579,7 @@ export default function ArticlePage() {
             
             {/* Imagem em destaque */}
             {article.imagem_url && (
-              <div className="relative h-48 sm:h-64 md:h-96 mb-6 sm:mb-8 rounded-lg sm:rounded-xl overflow-hidden">
+              <div className="relative h-64 sm:h-80 md:h-[28rem] lg:h-[34rem] xl:h-[40rem] mb-6 sm:mb-8 rounded-lg sm:rounded-xl overflow-hidden">
                 <div 
                   className="absolute inset-0 bg-cover bg-center" 
                   style={{ 
@@ -597,10 +597,10 @@ export default function ArticlePage() {
             )}
             
             {/* Conteúdo do artigo */}
-            <div className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none mb-8 sm:mb-10 article-content">
-              <ContentWithCarousel 
+            <div className="prose prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-xl 2xl:prose-2xl max-w-none mb-8 sm:mb-10 article-content">
+              <ClickableImageContent 
                 content={article.conteudo}
-                className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none"
+                className="prose prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-xl 2xl:prose-2xl max-w-none"
               />
             </div>
             
@@ -695,7 +695,7 @@ export default function ArticlePage() {
           </div>
           
           {/* Sidebar */}
-          <div className="w-full lg:w-1/3 space-y-6 sm:space-y-8 mt-6 sm:mt-8 lg:mt-0">
+          <div className="w-full lg:w-1/4 xl:w-1/5 space-y-6 sm:space-y-8 mt-6 sm:mt-8 lg:mt-0">
             {/* Artigos relacionados */}
             <div className="rounded-lg sm:rounded-xl overflow-hidden" style={{ 
               backgroundColor: 'rgba(26, 32, 44, 0.7)',

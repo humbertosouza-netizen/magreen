@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Placeholder</title>
+</head>
+<body>
+    <h1>Teste de Placeholder de Imagem</h1>
+    <div id="content">
+        <p>Este é um teste com placeholders [IMAGEM] e [IMAGEM] para verificar se estão sendo substituídos.</p>
+        <p>Mais texto aqui [IMAGEM] para testar.</p>
+    </div>
+    <button onclick="testPlaceholder()">Testar Placeholder</button>
+    <div id="result"></div>
+
+    <script>
+        function testPlaceholder() {
+            const content = document.getElementById('content').innerHTML;
+            console.log('HTML original:', content);
+            
+            // Simular a função createPlaceholderImages
+            const svgContent = `<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="300" fill="#f0f0f0" stroke="#ccc" stroke-width="2"/>
+                <text x="200" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#666">
+                    Imagem do Documento
+                </text>
+                <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#999">
+                    Extraída do Word
+                </text>
+            </svg>`;
+            
+            const placeholderSvg = `data:image/svg+xml;base64,${btoa(svgContent)}`;
+            
+            let processed = content;
+            let imageIndex = 1;
+            
+            processed = processed.replace(/\[IMAGEM\]/gi, () => {
+                console.log(`Criando placeholder ${imageIndex}`);
+                const imgTag = `<img src="${placeholderSvg}" alt="Imagem do documento ${imageIndex}" style="max-width: 100%; height: auto; margin: 20px 0; display: block; border: 1px solid #ddd; border-radius: 8px;" />`;
+                imageIndex++;
+                return imgTag;
+            });
+            
+            console.log('HTML processado:', processed);
+            document.getElementById('result').innerHTML = '<h3>Resultado:</h3>' + processed;
+        }
+    </script>
+</body>
+</html>
+

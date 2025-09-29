@@ -149,6 +149,7 @@ export default function RecuperarSenha() {
                   transition: theme.transitions.medium
                 }}
                 placeholder="seu@email.com"
+                autoComplete="email"
               />
             </div>
 
@@ -164,6 +165,7 @@ export default function RecuperarSenha() {
                   fontFamily: theme.typography.fontFamily.heading,
                   fontWeight: theme.typography.fontWeight.semiBold
                 }}
+                aria-label={loading ? 'Enviando email de recuperação, aguarde...' : 'Enviar email de recuperação de senha'}
               >
                 {loading ? 'Enviando...' : 'Enviar Email de Recuperação'}
               </button>

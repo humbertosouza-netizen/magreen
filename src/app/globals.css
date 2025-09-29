@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* NORMALIZAÇÃO DE ALTURAS DO DOCUMENTO */
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-y: auto;
+  margin: 0;
+  scrollbar-gutter: stable;
+}
+
 /* CORREÇÕES CRÍTICAS PARA MOBILE */
 @media (max-width: 767px) {
   * {
@@ -10,7 +24,6 @@
     width: 100% !important;
     max-width: 100vw !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
   }
   
   /* Garantir que todos os containers respeitem a largura da tela */
@@ -342,12 +355,30 @@ header, footer, nav {
     padding: 0;
   }
   
-  /* Garantir que a logo tenha o tamanho correto */
+  /* Garantir que a logo tenha o tamanho correto no mobile */
   header img[alt*="Logo"],
   div[class*="dashboard"] img[alt*="Logo"] {
-    width: 100px !important;
-    height: 100px !important;
+    width: 80px !important;
+    height: 80px !important;
     object-fit: contain !important;
+  }
+  
+  /* Limitar altura do container da logo no mobile */
+  div[class*="dashboard"] .p-2 {
+    height: 64px !important;
+    padding: 0.5rem !important;
+  }
+  
+  /* Garantir que o header do dashboard não seja muito grande no mobile */
+  div[class*="dashboard"] .border-b {
+    max-height: 80px !important;
+    min-height: 64px !important;
+  }
+  
+  /* Container da logo com altura fixa no mobile */
+  div[class*="dashboard"] .flex.items-center.justify-center {
+    height: 64px !important;
+    padding: 0.5rem !important;
   }
   
   /* Alinhamento dos ícones de navegação */
@@ -476,8 +507,90 @@ header, footer, nav {
     margin-bottom: 2rem !important; /* 32px */
   }
   
-  /* Espaçamento entre grupos de cards */
-  .card-group,
+/* CORREÇÕES PARA ELIMINAR ESPAÇO EXTRA NO FINAL DA PÁGINA */
+.page-content > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.blog-cards-grid > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Evitar colapso de margens */
+.page-content {
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
+/* Garantir que não há espaço extra no final */
+.page-content:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 24px !important;
+}
+
+/* Remover qualquer altura fixa desnecessária */
+.page-content * {
+  box-sizing: border-box;
+}
+
+/* Estilos para cards de blog com layout uniforme */
+.blog-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.blog-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 350px;
+  overflow: clip;
+}
+
+.blog-card-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.blog-card-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+  flex-grow: 1;
+}
+
+.blog-card-footer {
+  margin-top: auto;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+  .blog-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .blog-card {
+    min-height: 300px;
+  }
+}
+
+/* Responsividade para tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .blog-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+  }
+}
+
+/* Espaçamento entre grupos de cards */
+.card-group,
   div[class*="card-group"] {
     margin-bottom: 2rem !important; /* 32px */
   }
@@ -974,5 +1087,377 @@ main {
   .text-mobile-sm {
     font-size: 14px !important;
     line-height: 1.4 !important;
+  }
+}
+
+/* Estilo para texto justificado no blog */
+.article-content p {
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  hyphens: auto !important;
+}
+
+.article-content {
+  text-align: justify !important;
+}
+
+/* Estilos específicos para mobile - texto justificado */
+@media (max-width: 768px) {
+  .article-content p {
+    text-align: justify !important;
+    text-justify: inter-word !important;
+    hyphens: auto !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  .article-content {
+    text-align: justify !important;
+  }
+  
+  /* Melhorar legibilidade em mobile */
+  .article-content p {
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Corrigir listas no mobile - evitar overflow */
+  .article-content ul,
+  .article-content ol {
+    padding-left: 1rem !important;
+    margin: 0.5rem 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+  }
+
+  .article-content li {
+    margin: 0.25rem 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* Garantir que o texto não saia do container */
+  .article-content * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* CORREÇÃO ESPECÍFICA PARA ESPAÇAMENTO ENTRE TEXTO E IMAGENS */
+  .article-content img {
+    margin: 0.25rem 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }
+
+  .article-content p + img,
+  .article-content img + p {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .article-content h1 + img,
+  .article-content h2 + img,
+  .article-content h3 + img,
+  .article-content img + h1,
+  .article-content img + h2,
+  .article-content img + h3 {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* Sobrescrever estilos inline do Word/Office */
+  .article-content img[style*="margin"] {
+    margin: 0.25rem 0 !important;
+  }
+
+  .article-content img[style*="margin-top"] {
+    margin-top: 0.25rem !important;
+  }
+
+  .article-content img[style*="margin-bottom"] {
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* Sobrescrever tabelas do Word */
+  .article-content table img {
+    margin: 0.25rem 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }
+
+  .article-content table td img {
+    margin: 0.25rem 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }
+
+  /* Sobrescrever qualquer elemento com imagem */
+  .article-content * img {
+    margin: 0.25rem 0 !important;
+  }
+
+  /* Sobrescrever parágrafos com estilos inline */
+  .article-content p[style*="margin"] {
+    margin: 0.25rem 0 !important;
+  }
+
+  .article-content p[style*="margin-top"] {
+    margin-top: 0.25rem !important;
+  }
+
+  .article-content p[style*="margin-bottom"] {
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* Sobrescrever classes do Word */
+  .article-content .MsoNormal {
+    margin: 0.25rem 0 !important;
+  }
+
+  .article-content p.MsoNormal {
+    margin: 0.25rem 0 !important;
+  }
+
+  /* Sobrescrever qualquer elemento com margem */
+  .article-content *[style*="margin"] {
+    margin: 0.25rem 0 !important;
+  }
+
+  .article-content *[style*="margin-top"] {
+    margin-top: 0.25rem !important;
+  }
+
+  .article-content *[style*="margin-bottom"] {
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* Forçar espaçamento mínimo em todos os elementos */
+  .article-content * {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* Exceções para elementos específicos */
+  .article-content h1,
+  .article-content h2,
+  .article-content h3,
+  .article-content h4,
+  .article-content h5,
+  .article-content h6 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .article-content p:first-child {
+    margin-top: 0 !important;
+  }
+
+  .article-content p:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  /* Carrosséis sempre visíveis */
+  .article-content table {
+    display: none !important;
+  }
+
+  .mobile-carousel {
+    display: block !important;
+  }
+
+  /* Integrar carrosséis ao texto */
+  .mobile-carousel {
+    margin: 0.25rem 0 !important;
+    width: 100% !important;
+    position: relative !important;
+  }
+
+  .mobile-carousel-container {
+    width: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    border-radius: 0.5rem !important;
+  }
+
+  .mobile-carousel-slide {
+    width: 100% !important;
+    display: none !important;
+  }
+
+  .mobile-carousel-slide.active {
+    display: block !important;
+  }
+
+  .mobile-carousel img {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    display: block !important;
+    border-radius: 0.5rem !important;
+  }
+
+  .mobile-carousel-nav {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .mobile-carousel-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s ease !important;
+  }
+
+  .mobile-carousel-dot.active {
+    background-color: #7fdb3f !important;
+  }
+
+  .mobile-carousel-arrow {
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 44px !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 18px !important;
+    z-index: 10 !important;
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    transition: background-color 0.2s ease !important;
+  }
+
+  .mobile-carousel-arrow:hover {
+    background-color: rgba(0, 0, 0, 0.9) !important;
+  }
+
+  /* Hover effect para desktop */
+  @media (min-width: 769px) {
+    .mobile-carousel-arrow:hover {
+      background-color: rgba(0, 0, 0, 0.9) !important;
+      transform: translateY(-50%) scale(1.1) !important;
+    }
+  }
+
+  .mobile-carousel-arrow.prev {
+    left: 10px !important;
+  }
+
+  .mobile-carousel-arrow.next {
+    right: 10px !important;
+  }
+
+  /* Carrosséis sempre visíveis */
+  .mobile-carousel {
+    display: block !important;
+  }
+
+  /* Garantir que setas sejam clicáveis no mobile */
+  @media (max-width: 768px) {
+    .mobile-carousel-arrow {
+      pointer-events: auto !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+    }
+  }
+
+  .article-content .mobile-carousel {
+    display: block !important;
+    width: 100% !important;
+    position: relative !important;
+    margin: 1rem 0 !important;
+  }
+
+  .article-content .mobile-carousel-container {
+    width: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    border-radius: 0.5rem !important;
+  }
+
+  .article-content .mobile-carousel-slide {
+    width: 100% !important;
+    display: none !important;
+  }
+
+  .article-content .mobile-carousel-slide.active {
+    display: block !important;
+  }
+
+  .article-content .mobile-carousel img {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    display: block !important;
+    border-radius: 0.5rem !important;
+  }
+
+  .article-content .mobile-carousel-nav {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin-top: 1rem !important;
+  }
+
+  .article-content .mobile-carousel-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s ease !important;
+  }
+
+  .article-content .mobile-carousel-dot.active {
+    background-color: #7fdb3f !important;
+  }
+
+  .article-content .mobile-carousel-arrow {
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 18px !important;
+    z-index: 10 !important;
+  }
+
+  .article-content .mobile-carousel-arrow.prev {
+    left: 10px !important;
+  }
+
+  .article-content .mobile-carousel-arrow.next {
+    right: 10px !important;
   }
 }

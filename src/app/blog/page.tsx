@@ -49,6 +49,7 @@ export default function BlogPage() {
 
   useEffect(() => {
     fetchArticles();
+    window.scrollTo({ top: 0 });
   }, []);
 
   // Função para buscar artigos do Supabase
@@ -148,7 +149,16 @@ export default function BlogPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#1A1A1A', color: 'white' }}>
+    <div 
+      className="min-h-screen" 
+      style={{ 
+        backgroundColor: '#1A1A1A', 
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100dvh'
+      }}
+    >
       {/* Header com estilo bio-tech */}
       <header 
         className="border-b border-gray-800 relative z-10" 
@@ -241,7 +251,10 @@ export default function BlogPage() {
 
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="relative">
+                <label htmlFor="search-articles" className="sr-only">Buscar artigos</label>
                 <input
+                  id="search-articles"
+                  name="search-articles"
                   type="text"
                   placeholder="Buscar artigos..."
                   value={searchQuery}
@@ -333,7 +346,12 @@ export default function BlogPage() {
       </div>
 
       {/* Grade de posts com efeito glassmorphism */}
-      <div className="container mx-auto px-4 pb-16">
+      <div 
+        className="page-content container mx-auto px-4"
+        style={{
+          flex: '1 0 auto'
+        }}
+      >
         {error && (
           <div className="p-6 bg-red-800 rounded-lg mb-6">
             <h3 className="text-white font-semibold mb-2">Erro ao carregar artigos</h3>
@@ -348,12 +366,12 @@ export default function BlogPage() {
         )}
 
         {filteredArticles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mb-4 md:mb-6 lg:mb-8">
+          <div className="blog-cards-grid mb-4 md:mb-6 lg:mb-8">
             {filteredArticles.map((article) => (
               <Link 
                 href={`/blog/${article.id}`} 
                 key={article.id} 
-                className="blog-clickable-element rounded-xl overflow-hidden transform transition-all duration-300 h-full"
+                className="blog-clickable-element blog-card rounded-xl overflow-hidden transform transition-all duration-300"
                 style={{ 
                   backgroundColor: 'rgba(26, 32, 44, 0.7)',
                   backdropFilter: 'blur(8px)',
@@ -389,14 +407,14 @@ export default function BlogPage() {
                     </span>
                   </div>
                 </div>
-                <div className="p-5">
+                <div className="blog-card-content p-5">
                   <h3 className="text-lg font-semibold mb-2">
                     {article.titulo}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-4">
+                  <p className="blog-card-description text-gray-400 text-sm mb-4">
                     {article.resumo}
                   </p>
-                  <div className="flex items-center justify-between mt-4">
+                  <div className="blog-card-footer flex items-center justify-between">
                     <div className="flex items-center">
                       <div 
                         className="h-8 w-8 rounded-full bg-cover bg-center mr-2" 

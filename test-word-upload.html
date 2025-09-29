@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Upload Word</title>
+</head>
+<body>
+    <h1>Teste de Upload de Arquivo Word</h1>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" accept=".doc,.docx" />
+        <button type="submit">Enviar</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Selecione um arquivo');
+                return;
+            }
+            
+            // Converter para base64
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result.split(',')[1];
+                
+                try {
+                    console.log('Enviando arquivo para API...');
+                    const response = await fetch('http://localhost:3001/api/process-word', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            file: base64,
+                            fileName: file.name
+                        })
+                    });
+                    
+                    console.log('Resposta recebida:', response.status, response.statusText);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Resultado:', result);
+                    
+                    document.getElementById('result').innerHTML = `
+                        <h2>Resultado:</h2>
+                        <p><strong>Título:</strong> ${result.titulo}</p>
+                        <p><strong>Resumo:</strong> ${result.resumo}</p>
+                        <p><strong>Categoria:</strong> ${result.categoria}</p>
+                        <p><strong>Tags:</strong> ${result.tags.join(', ')}</p>
+                        <h3>Conteúdo:</h3>
+                        <div style="border: 1px solid #ccc; padding: 10px; max-height: 400px; overflow-y: auto;">
+                            ${result.conteudo}
+                        </div>
+                    `;
+                } catch (error) {
+                    console.error('Erro:', error);
+                    alert('Erro ao processar arquivo: ' + error.message);
+                }
+            };
+            
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>

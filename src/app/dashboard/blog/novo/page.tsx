@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePageState, clearPageStateData, getLocalStorageUsage } from '@/hooks/usePageState';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
@@ -9,22 +10,54 @@ import Link from 'next/link';
 
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ClickableImageContent from '@/components/ui/ClickableImageContent';
+import WordUploadButton from '@/components/ui/WordUploadButton';
 
 export default function NovoBlogPost() {
   const router = useRouter();
   const { user, isAdmin } = useUser();
   const [loading, setLoading] = useState(false);
-  const [titulo, setTitulo] = useState('');
-  const [resumo, setResumo] = useState('');
-  const [conteudo, setConteudo] = useState('');
-  const [categoria, setCategoria] = useState('');
+  const [titulo, setTitulo] = usePageState<string>('blog_novo_titulo', '');
+  const [resumo, setResumo] = usePageState<string>('blog_novo_resumo', '');
+  const [conteudo, setConteudo] = usePageState<string>('blog_novo_conteudo', '');
+  const [categoria, setCategoria] = usePageState<string>('blog_novo_categoria', '');
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [imagemUrl, setImagemUrl] = useState('');
-  const [publicar, setPublicar] = useState(false);
+  const [tags, setTags] = usePageState<string[]>('blog_novo_tags', []);
+  const [imagemUrl, setImagemUrl] = usePageState<string>('blog_novo_imagemUrl', '');
+  const [publicar, setPublicar] = usePageState<boolean>('blog_novo_publicar', false);
   const [erro, setErro] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingContentImage, setUploadingContentImage] = useState(false);
+  const [storageUsage, setStorageUsage] = useState({ used: 0, total: 0, percentage: 0 });
+
+  // Função para limpar rascunho persistido e resetar o formulário
+  const clearDraft = () => {
+    try {
+      clearPageStateData();
+      setTitulo('');
+      setResumo('');
+      setConteudo('');
+      setCategoria('');
+      setTags([]);
+      setImagemUrl('');
+      setPublicar(false);
+      setErro('');
+      console.log('Rascunho limpo com sucesso');
+    } catch (error) {
+      console.error('Erro ao limpar rascunho:', error);
+    }
+  };
+
+  // Função para verificar uso do localStorage
+  const checkStorageUsage = () => {
+    const usage = getLocalStorageUsage();
+    setStorageUsage(usage);
+    console.log(`Uso do localStorage: ${usage.percentage.toFixed(1)}% (${(usage.used / 1024 / 1024).toFixed(2)}MB / ${(usage.total / 1024 / 1024).toFixed(2)}MB)`);
+  };
+
+  // Verificar uso do storage ao carregar
+  useEffect(() => {
+    checkStorageUsage();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -39,29 +72,38 @@ export default function NovoBlogPost() {
     }
   }, [user, isAdmin, router]);
 
-  // Limpar dados do localStorage e garantir que a página sempre comece vazia
+  // Avisar o usuário ao sair com alterações não salvas
   useEffect(() => {
-    // Limpar dados salvos anteriormente no localStorage
-    localStorage.removeItem('blog_novo_titulo');
-    localStorage.removeItem('blog_novo_resumo');
-    localStorage.removeItem('blog_novo_conteudo');
-    localStorage.removeItem('blog_novo_categoria');
-    localStorage.removeItem('blog_novo_tags');
-    localStorage.removeItem('blog_novo_publicar');
-    
-    // Garantir que a imagem de capa seja sempre limpa
-    setImagemUrl('');
-  }, []);
+    const isDirty = Boolean(
+      (titulo && titulo.trim() !== '') ||
+      (resumo && resumo.trim() !== '') ||
+      (conteudo && conteudo.trim() !== '') ||
+      (categoria && categoria.trim() !== '') ||
+      (imagemUrl && imagemUrl.trim() !== '') ||
+      (tags && tags.length > 0) ||
+      publicar
+    );
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [titulo, resumo, conteudo, categoria, imagemUrl, tags, publicar]);
 
   const adicionarTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+    if (tagInput.trim() && tags && !tags.includes(tagInput.trim())) {
       setTags([...tags, tagInput.trim()]);
       setTagInput('');
     }
   };
 
   const removerTag = (tagParaRemover: string) => {
-    setTags(tags.filter(tag => tag !== tagParaRemover));
+    if (tags) {
+      setTags(tags.filter(tag => tag !== tagParaRemover));
+    }
   };
 
   const handleTagKeyPress = (e: React.KeyboardEvent) => {
@@ -101,7 +143,7 @@ export default function NovoBlogPost() {
         conteudo,
         autor_id: user.id,
         categoria: categoria || 'Geral',
-        tags: tags.length > 0 ? tags : [],
+        tags: (tags && tags.length > 0) ? tags : [],
         imagem_url: imagemUrl || null,
         publicado: publicar,
         data_publicacao: publicar ? new Date().toISOString() : null
@@ -133,6 +175,16 @@ export default function NovoBlogPost() {
       setTags([]);
       setImagemUrl('');
       setPublicar(false);
+      try {
+        // Limpar rascunho persistido
+        localStorage.removeItem('page_state_blog_novo_titulo');
+        localStorage.removeItem('page_state_blog_novo_resumo');
+        localStorage.removeItem('page_state_blog_novo_conteudo');
+        localStorage.removeItem('page_state_blog_novo_categoria');
+        localStorage.removeItem('page_state_blog_novo_tags');
+        localStorage.removeItem('page_state_blog_novo_imagemUrl');
+        localStorage.removeItem('page_state_blog_novo_publicar');
+      } catch {}
       
       router.push('/dashboard/blog');
     } catch (error: any) {
@@ -178,6 +230,25 @@ export default function NovoBlogPost() {
     setUploading(false);
   };
 
+  // Função para processar dados do Word
+  const handleWordProcessed = (data: {
+    titulo: string;
+    resumo: string;
+    conteudo: string;
+    categoria: string;
+    tags: string[];
+  }) => {
+    setTitulo(data.titulo || '');
+    setResumo(data.resumo || '');
+    setConteudo(data.conteudo || '');
+    setCategoria(data.categoria || '');
+    setTags(Array.isArray(data.tags) ? data.tags : []);
+  };
+
+  const handleWordError = (error: string) => {
+    setErro(error);
+  };
+
   // Função para upload de imagem do conteúdo
   const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -220,7 +291,7 @@ export default function NovoBlogPost() {
     const imageHtml = `<p><img src="${publicData.publicUrl}" alt="${file.name}" style="max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0;" /></p>`;
     
     // Inserir no final do conteúdo
-    setConteudo(prev => prev + imageHtml);
+    setConteudo(prev => (prev || '') + imageHtml);
     
     setUploadingContentImage(false);
   };
@@ -303,12 +374,19 @@ export default function NovoBlogPost() {
           }}
         >
           <form onSubmit={handleSubmit} className="p-6">
+            {/* Botão de Upload de Word */}
+            <WordUploadButton
+              onWordProcessed={handleWordProcessed}
+              onError={handleWordError}
+            />
+
             <div className="mb-6">
               <label htmlFor="titulo" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                 Título *
               </label>
               <input
                 id="titulo"
+                name="titulo"
                 type="text"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
@@ -320,6 +398,7 @@ export default function NovoBlogPost() {
                 }}
                 required
                 placeholder="Digite o título do post"
+                autoComplete="off"
               />
             </div>
             
@@ -329,6 +408,7 @@ export default function NovoBlogPost() {
               </label>
               <textarea
                 id="resumo"
+                name="resumo"
                 rows={3}
                 value={resumo}
                 onChange={(e) => setResumo(e.target.value)}
@@ -340,11 +420,12 @@ export default function NovoBlogPost() {
                 }}
                 required
                 placeholder="Escreva um breve resumo do conteúdo"
+                autoComplete="off"
               />
             </div>
             
             <div className="mb-6">
-              <label htmlFor="conteudo" className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: theme.colors.textSecondary }}>
                 Conteúdo *
               </label>
               
@@ -408,6 +489,7 @@ export default function NovoBlogPost() {
                 </label>
                 <input
                   id="categoria"
+                  name="categoria"
                   type="text"
                   value={categoria}
                   onChange={(e) => setCategoria(e.target.value)}
@@ -418,6 +500,7 @@ export default function NovoBlogPost() {
                     outline: 'none',
                   }}
                   placeholder="Ex: Cultivo, Ferramentas, Notícias"
+                  autoComplete="off"
                 />
               </div>
               
@@ -427,6 +510,7 @@ export default function NovoBlogPost() {
                 </label>
                 <input
                   id="imagem"
+                  name="imagem"
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
@@ -453,7 +537,7 @@ export default function NovoBlogPost() {
                 Tags
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {tags.map((tag, index) => (
+                {tags && Array.isArray(tags) && tags.map((tag, index) => (
                   <span 
                     key={index}
                     className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center"
@@ -477,6 +561,8 @@ export default function NovoBlogPost() {
               </div>
               <div className="flex">
                 <input
+                  id="tag-input"
+                  name="tag-input"
                   type="text"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
@@ -488,6 +574,7 @@ export default function NovoBlogPost() {
                     outline: 'none',
                   }}
                   placeholder="Digite uma tag e pressione Enter"
+                  autoComplete="off"
                 />
                 <button
                   type="button"
@@ -497,6 +584,7 @@ export default function NovoBlogPost() {
                     backgroundColor: 'rgba(255, 255, 255, 0.15)',
                     color: theme.colors.textPrimary
                   }}
+                  aria-label="Adicionar tag ao post"
                 >
                   Adicionar
                 </button>
@@ -506,6 +594,8 @@ export default function NovoBlogPost() {
             <div className="mb-8">
               <label className="flex items-center cursor-pointer">
                 <input
+                  id="publicar"
+                  name="publicar"
                   type="checkbox"
                   checked={publicar}
                   onChange={(e) => setPublicar(e.target.checked)}
@@ -536,9 +626,37 @@ export default function NovoBlogPost() {
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   color: theme.colors.textPrimary
                 }}
+                onClick={clearDraft}
               >
                 Cancelar
               </Link>
+              <button
+                type="button"
+                onClick={clearDraft}
+                className="px-4 py-2 rounded-full shadow-sm text-sm font-medium transition-all"
+                style={{ 
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  color: '#fca5a5',
+                  border: '1px solid rgba(239, 68, 68, 0.35)'
+                }}
+                title="Descartar rascunho salvo"
+                aria-label="Limpar rascunho e descartar alterações não salvas"
+              >
+                Limpar rascunho
+              </button>
+              <button
+                type="button"
+                onClick={checkStorageUsage}
+                className="px-3 py-2 rounded-full shadow-sm text-xs font-medium transition-all"
+                style={{ 
+                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                  color: '#93c5fd',
+                  border: '1px solid rgba(59, 130, 246, 0.35)'
+                }}
+                title={`Uso atual: ${storageUsage.percentage.toFixed(1)}%`}
+              >
+                Storage: {storageUsage.percentage.toFixed(1)}%
+              </button>
               <button
                 type="submit"
                 disabled={loading}
@@ -549,6 +667,7 @@ export default function NovoBlogPost() {
                   fontWeight: 'bold',
                   boxShadow: '0 4px 10px rgba(127, 219, 63, 0.3)'
                 }}
+                aria-label={loading ? 'Salvando post, aguarde...' : 'Salvar post no blog'}
               >
                 {loading ? 'Salvando...' : 'Salvar Post'}
               </button>

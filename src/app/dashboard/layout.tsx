@@ -384,7 +384,7 @@ function DashboardContent({
           }}
         >
           <div 
-            className="p-4 flex items-center justify-center border-b md:h-24"
+            className="p-2 md:p-4 flex items-center justify-center border-b h-16 md:h-24"
             style={{ borderColor: `${theme.colors.primary}20` }}
           >
             <Link href="/dashboard" className="flex items-center justify-center blog-clickable-element">
@@ -392,13 +392,14 @@ function DashboardContent({
                 src="/images/logo/magnificencia-green-full-logo.png"
                 alt="MagnifiGreen Logo"
                 style={{
-                  width: '120px',
-                  height: '120px',
+                  width: '80px',
+                  height: '80px',
                   maxWidth: '100%',
                   objectFit: 'contain',
                   filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
                   margin: '0 auto'
                 }}
+                className="md:w-[120px] md:h-[120px]"
               />
             </Link>
           </div>

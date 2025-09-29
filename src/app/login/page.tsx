@@ -11,6 +11,10 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [needsMFA, setNeedsMFA] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [userId, setUserId] = useState('');
   const router = useRouter();
 
   // Verificar localStorage e URL params
@@ -42,15 +46,33 @@ export default function Login() {
     setMessage(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
       
-      // Redirecionar para o dashboard após login bem-sucedido
-      router.push('/dashboard/estudos');
+      // Verificar se o usuário tem MFA ativado
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mfa_enabled, mfa_secret')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profile?.mfa_enabled && profile?.mfa_secret) {
+        // Usuário tem MFA ativado, solicitar código
+        setNeedsMFA(true);
+        setMfaSecret(profile.mfa_secret);
+        setUserId(data.user.id);
+        setMessage({
+          text: 'Digite o código de 6 dígitos do seu autenticador',
+          type: 'success'
+        });
+      } else {
+        // Usuário não tem MFA, redirecionar normalmente
+        router.push('/dashboard/estudos');
+      }
     } catch (error: any) {
       setMessage({
         text: error.message || 'Erro ao fazer login',
@@ -59,6 +81,46 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMFAVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      // Verificar código TOTP
+      const response = await fetch('/api/verify-totp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ secret: mfaSecret, code: mfaCode }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Código inválido');
+      }
+
+      // Código válido, redirecionar para dashboard
+      router.push('/dashboard/estudos');
+    } catch (error: any) {
+      setMessage({
+        text: error.message || 'Código inválido',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setNeedsMFA(false);
+    setMfaCode('');
+    setMfaSecret('');
+    setUserId('');
+    setMessage(null);
   };
 
   return (
@@ -134,7 +196,8 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="mt-6 sm:mt-8 space-y-5 sm:space-y-6">
+        {!needsMFA ? (
+          <form onSubmit={handleLogin} className="mt-6 sm:mt-8 space-y-5 sm:space-y-6">
           <div>
             <label 
               htmlFor="email" 
@@ -158,6 +221,7 @@ export default function Login() {
                 transition: theme.transitions.medium
               }}
               placeholder="seu@email.com"
+              autoComplete="email"
             />
           </div>
 
@@ -193,6 +257,7 @@ export default function Login() {
                 transition: theme.transitions.medium
               }}
               placeholder="••••••••"
+              autoComplete="current-password"
             />
           </div>
 
@@ -208,11 +273,87 @@ export default function Login() {
                 fontFamily: theme.typography.fontFamily.heading,
                 fontWeight: theme.typography.fontWeight.semiBold
               }}
+              aria-label={loading ? 'Fazendo login, aguarde...' : 'Fazer login na plataforma'}
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </div>
         </form>
+        ) : (
+          <form onSubmit={handleMFAVerification} className="mt-6 sm:mt-8 space-y-5 sm:space-y-6">
+            <div className="text-center mb-6">
+              <h2 
+                className="text-xl font-bold mb-2"
+                style={{ color: 'rgba(255, 255, 255, 0.9)' }}
+              >
+                Verificação de Dois Fatores
+              </h2>
+              <p 
+                className="text-sm"
+                style={{ color: 'rgba(255, 255, 255, 0.7)' }}
+              >
+                Digite o código de 6 dígitos do seu autenticador
+              </p>
+            </div>
+
+            <div>
+              <label 
+                htmlFor="mfa-code"
+                className="block text-sm font-medium mb-1.5"
+                style={{ color: 'rgba(255, 255, 255, 0.9)' }}
+              >
+                Código de Verificação
+              </label>
+              <input
+                id="mfa-code"
+                name="mfa-code"
+                type="text"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full px-4 py-3 rounded-lg text-center text-lg font-mono"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  border: '2px solid rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  transition: theme.transitions.medium
+                }}
+                maxLength={6}
+                required
+                autoComplete="one-time-code"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="flex-1 px-4 py-3 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  fontFamily: theme.typography.fontFamily.heading
+                }}
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={loading || mfaCode.length !== 6}
+                className="flex-1 px-4 py-3 rounded-lg transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: theme.colors.primary,
+                  color: theme.colors.background,
+                  fontFamily: theme.typography.fontFamily.heading,
+                  fontWeight: theme.typography.fontWeight.semiBold
+                }}
+              >
+                {loading ? 'Verificando...' : 'Verificar'}
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="text-center mt-4">
           <p 

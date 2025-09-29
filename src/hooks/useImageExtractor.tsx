@@ -24,7 +24,40 @@ export const useImageExtractor = (content: string) => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content;
 
-    // Encontrar todas as imagens (incluindo as com classes específicas)
+    // 1) Tratamento prioritário: tabelas com múltiplas imagens (molde do botão Carrossel)
+    const tableGroups: ImageGroup[] = [];
+    const tables = Array.from(tempDiv.querySelectorAll('table'));
+    tables.forEach((table, index) => {
+      const imgs = table.querySelectorAll('img');
+      if (imgs.length > 1) {
+        const imgsSrc = Array.from(imgs)
+          .map(img => img.getAttribute('src'))
+          .filter((src): src is string => Boolean(src));
+        if (imgsSrc.length > 1) {
+          const id = `table-group-${index}`;
+          tableGroups.push({
+            id,
+            images: imgsSrc,
+            startIndex: 0,
+            endIndex: imgsSrc.length - 1,
+          });
+          // Substituir a tabela diretamente no DOM por um placeholder
+          const placeholder = document.createElement('div');
+          placeholder.className = 'image-carousel-placeholder';
+          placeholder.setAttribute('data-group-id', id);
+          placeholder.setAttribute('data-images', JSON.stringify(imgsSrc));
+          table.parentNode?.replaceChild(placeholder, table);
+        }
+      }
+    });
+
+    if (tableGroups.length > 0) {
+      setImageGroups(tableGroups);
+      setProcessedContent(tempDiv.innerHTML);
+      return; // já processado via tabelas
+    }
+
+    // 2) Fallback: Encontrar todas as imagens (não-tabela) e agrupar quando próximas
     const images = tempDiv.querySelectorAll('img');
     const imageUrls: string[] = [];
     const imageElements: Element[] = [];
@@ -47,7 +80,9 @@ export const useImageExtractor = (content: string) => {
     let currentGroup: ImageGroup | null = null;
 
     imageElements.forEach((img, index) => {
-      const imgIndex = Array.from(tempDiv.children).indexOf(img);
+      // Calcular posição sequencial percorrendo toda a árvore
+      // Usamos a ordem do NodeList (document order) como índice relativo estável
+      const imgIndex = index;
       
       if (!currentGroup) {
         currentGroup = {
