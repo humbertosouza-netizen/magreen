@@ -1,8 +1,31 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import theme from '@/styles/theme';
+
 export default function SobreNos() {
+	const router = useRouter();
+
 	return (
 		<main className="px-4 sm:px-6 lg:px-8 py-8 max-w-4xl mx-auto">
+			{/* Botão de voltar */}
+			<div className="mb-6">
+				<button
+					onClick={() => router.back()}
+					className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors blog-clickable-element"
+					style={{
+						backgroundColor: 'rgba(31, 41, 55, 0.8)',
+						borderColor: theme.colors.primary + '40',
+						color: theme.colors.textPrimary
+					}}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+					</svg>
+					Voltar
+				</button>
+			</div>
+
 			<section className="bg-white/70 dark:bg-black/30 backdrop-blur rounded-xl shadow-sm border border-black/5 dark:border-white/10 p-6 sm:p-8">
 				<header className="mb-6 sm:mb-8">
 					<h1 className="text-2xl sm:text-3xl font-bold">🌱 APRESENTAÇÃO INSTITUCIONAL – MAGNIFICÊNCIA (MAGREEN)</h1>
@@ -83,8 +106,8 @@ export default function SobreNos() {
 						<ul className="list-disc pl-6 space-y-2">
 							<li>📸 Instagram: <span className="font-medium">@magreen.oficial</span></li>
 							<li>▶️ YouTube: <span className="font-medium">MAGREEN Cultivo Real</span></li>
-							<li>🌐 Site Oficial: <span className="font-medium">www.magreen.com.br</span> <span className="text-sm opacity-70">(modelo fictício)</span></li>
-							<li>📩 Contato: <a href="mailto:contato@magreen.com.br" className="text-blue-600 hover:underline">contato@magreen.com.br</a></li>
+							<li>🌐 Site Oficial: <span className="font-medium">www.magreen.org</span></li>
+							<li>📩 Contato: <a href="mailto:contato@magreen.org" className="text-blue-600 hover:underline">contato@magreen.org</a></li>
 						</ul>
 					</div>
 

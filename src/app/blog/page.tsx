@@ -352,6 +352,91 @@ export default function BlogPage() {
           flex: '1 0 auto'
         }}
       >
+        <style jsx global>{`
+          /* CSS para corrigir layout mobile do blog */
+          .blog-cards-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+          }
+          
+          @media (min-width: 768px) {
+            .blog-cards-grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 2rem;
+            }
+          }
+          
+          @media (min-width: 1024px) {
+            .blog-cards-grid {
+              grid-template-columns: repeat(3, 1fr);
+              gap: 2rem;
+            }
+          }
+          
+          /* Garantir que as imagens apareçam no mobile */
+          .blog-card .relative.h-48 {
+            height: 12rem !important;
+            min-height: 12rem !important;
+          }
+          
+          .blog-card .absolute.inset-0 {
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+          }
+          
+          /* Corrigir z-index de modais */
+          .modal-overlay {
+            z-index: 9999 !important;
+          }
+          
+          .modal-content {
+            z-index: 10000 !important;
+          }
+          
+          /* Garantir que elementos não se sobreponham */
+          .blog-card {
+            position: relative !important;
+            z-index: 1 !important;
+          }
+          
+          /* Melhorar responsividade das imagens */
+          @media (max-width: 767px) {
+            .blog-card .relative.h-48 {
+              height: 10rem !important;
+              min-height: 10rem !important;
+            }
+            
+            .blog-card-content {
+              padding: 1rem !important;
+            }
+            
+            .blog-card-description {
+              font-size: 0.875rem !important;
+              line-height: 1.4 !important;
+            }
+          }
+          
+          /* Corrigir sobreposição de elementos */
+          .blog-clickable-element {
+            position: relative !important;
+            z-index: 1 !important;
+          }
+          
+          /* Garantir que o header não sobreponha conteúdo */
+          header {
+            position: relative !important;
+            z-index: 10 !important;
+          }
+          
+          /* Corrigir footer */
+          footer {
+            position: relative !important;
+            z-index: 1 !important;
+          }
+        `}</style>
         {error && (
           <div className="p-6 bg-red-800 rounded-lg mb-6">
             <h3 className="text-white font-semibold mb-2">Erro ao carregar artigos</h3>
