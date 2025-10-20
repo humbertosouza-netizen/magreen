@@ -6,11 +6,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
+  serverExternalPackages: ['@supabase/supabase-js'],
 };
 
 module.exports = nextConfig; 
