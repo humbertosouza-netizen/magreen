@@ -375,13 +375,14 @@ export default function BlogPage() {
             }
           }
           
-          /* Garantir que as imagens apareçam */
+          /* Garantir que as imagens apareçam em todas as resoluções */
           .blog-card .relative.h-48 {
             height: 12rem !important;
             min-height: 12rem !important;
             position: relative !important;
             overflow: hidden !important;
             background-color: #1a1a1a !important;
+            display: block !important;
           }
           
           .blog-card .absolute.inset-0 {
@@ -396,11 +397,72 @@ export default function BlogPage() {
             width: 100% !important;
             height: 100% !important;
             z-index: 1 !important;
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
           }
           
-          /* Debug: mostrar borda para verificar se o elemento existe */
-          .blog-card .absolute.inset-0.bg-cover {
-            border: 1px solid rgba(255, 0, 0, 0.3) !important;
+          /* Forçar exibição em mobile */
+          @media (max-width: 768px) {
+            .blog-card .relative.h-48 {
+              height: 10rem !important;
+              min-height: 10rem !important;
+              background-color: #2a2a2a !important;
+              position: relative !important;
+              overflow: hidden !important;
+            }
+            
+            .blog-card .absolute.inset-0 {
+              background-size: cover !important;
+              background-position: center !important;
+              background-repeat: no-repeat !important;
+              display: block !important;
+              opacity: 1 !important;
+              visibility: visible !important;
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+            }
+          }
+          
+          /* Forçar exibição em telas muito pequenas */
+          @media (max-width: 480px) {
+            .blog-card .relative.h-48 {
+              height: 8rem !important;
+              min-height: 8rem !important;
+              background-color: #2a2a2a !important;
+            }
+            
+            .blog-card .absolute.inset-0 {
+              background-size: cover !important;
+              background-position: center !important;
+              background-repeat: no-repeat !important;
+              display: block !important;
+              opacity: 1 !important;
+              visibility: visible !important;
+            }
+          }
+          
+          /* Espaçamento do botão em mobile */
+          @media (max-width: 768px) {
+            .load-more-button-container {
+              margin-top: 2rem !important;
+              margin-bottom: 3rem !important;
+              padding: 0 1rem !important;
+            }
+          }
+          
+          /* Espaçamento extra para telas muito pequenas */
+          @media (max-width: 480px) {
+            .load-more-button-container {
+              margin-top: 2.5rem !important;
+              margin-bottom: 4rem !important;
+              padding: 0 1.5rem !important;
+            }
           }
           
           /* Corrigir z-index de modais */
@@ -576,7 +638,7 @@ export default function BlogPage() {
 
         {/* Botão de carregar mais */}
         {filteredArticles.length > 0 && (
-          <div className="mt-10 text-center px-4">
+          <div className="load-more-button-container mt-10 text-center px-4">
             <button 
               className="w-full max-w-sm mx-auto px-6 py-3 rounded-lg text-sm font-semibold blog-clickable-element transition-all duration-200 hover:scale-105"
               style={{ 
