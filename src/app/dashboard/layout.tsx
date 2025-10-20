@@ -132,8 +132,8 @@ function DashboardContent({
         setProfileMenuOpen(false);
       }
       
-      // Fechar a sidebar em mobile quando clicar fora (apenas se estiver em viewport mobile)
-      if (window.innerWidth < 768 && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+      // Fechar a sidebar em mobile/tablet quando clicar fora (apenas se estiver em viewport mobile/tablet)
+      if (window.innerWidth < 1024 && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
         setSidebarOpen(false);
       }
     }
@@ -144,9 +144,9 @@ function DashboardContent({
     };
   }, []);
 
-  // Fechar sidebar ao mudar de rota em modo mobile
+  // Fechar sidebar ao mudar de rota em modo mobile/tablet
   useEffect(() => {
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
   }, [pathname]);
@@ -298,9 +298,9 @@ function DashboardContent({
         }}
       />
       
-      {/* Barra superior fixa para mobile - Design moderno */}
+      {/* Barra superior fixa para mobile/tablet - Design moderno */}
       <div 
-        className="md:hidden flex items-center justify-between px-4 py-2 border-b z-20"
+        className="lg:hidden flex items-center justify-between px-4 py-2 border-b z-20"
         style={{ 
           backgroundColor: 'rgba(31, 41, 55, 0.95)',
           backdropFilter: 'blur(8px)',
@@ -324,6 +324,17 @@ function DashboardContent({
             />
           </Link>
         </div>
+        
+        {/* Botão de menu hambúrguer */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 blog-clickable-element flex items-center justify-center cursor-pointer"
+          style={{ color: theme.colors.textPrimary }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         
         {/* Ícones de navegação à direita */}
         <div className="flex items-center gap-4">
@@ -360,10 +371,10 @@ function DashboardContent({
       </div>
       
       <div className="flex flex-1 overflow-hidden">
-        {/* Overlay para fechar sidebar em mobile */}
+        {/* Overlay para fechar sidebar em mobile/tablet */}
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-30 md:hidden"
+            className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-30 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -371,8 +382,8 @@ function DashboardContent({
         {/* Barra lateral de navegação - Estilo moderno e orgânico */}
         <div 
           ref={sidebarRef}
-          className={`fixed md:relative md:w-64 flex-shrink-0 border-r flex flex-col z-40 h-full transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          className={`fixed lg:relative lg:w-64 flex-shrink-0 border-r flex flex-col z-40 h-full transition-transform duration-300 ease-in-out ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           }`}
           style={{ 
             backgroundColor: 'rgba(31, 41, 55, 0.98)',
@@ -568,7 +579,7 @@ function DashboardContent({
       <div className="flex-1 flex flex-col overflow-hidden">
           {/* Cabeçalho para desktop - Design moderno */}
           <header 
-            className="hidden md:flex h-16 items-center px-6 border-b"
+            className="hidden lg:flex h-16 items-center px-6 border-b"
             style={{ 
               backgroundColor: 'rgba(31, 41, 55, 0.95)',
               backdropFilter: 'blur(8px)',
@@ -596,7 +607,7 @@ function DashboardContent({
 
           {/* Área de conteúdo principal com scroll e efeito de brilho ambiental */}
           <main 
-            className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8 relative main-container mobile-scroll-visible"
+            className="flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6 xl:p-8 relative main-container mobile-scroll-visible"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(127, 219, 63, 0.9) rgba(0, 0, 0, 0.5)',
@@ -618,9 +629,9 @@ function DashboardContent({
             </div>
         </main>
           
-          {/* Barra de navegação inferior para mobile - Estilo moderno flutuante */}
+          {/* Barra de navegação inferior para mobile/tablet - Estilo moderno flutuante */}
           <div 
-            className="md:hidden flex justify-around items-center py-3 px-4 z-10 fixed bottom-0 left-0 right-0 border-t"
+            className="lg:hidden flex justify-around items-center py-3 px-4 z-10 fixed bottom-0 left-0 right-0 border-t"
             style={{ 
               backgroundColor: 'rgba(31, 41, 55, 0.98)',
               backdropFilter: 'blur(12px)',
@@ -681,7 +692,7 @@ function DashboardContent({
 
       {/* CSS Inline para FORÇAR scrollbar no mobile */}
       <style jsx global>{`
-        @media (max-width: 768px), (pointer: coarse) {
+        @media (max-width: 1023px), (pointer: coarse) {
           /* FORÇAR SCROLLBAR VISÍVEL NO MOBILE */
           html, body {
             overflow: auto !important;
@@ -740,8 +751,8 @@ function DashboardContent({
             -webkit-overflow-scrolling: touch !important;
           }
           
-          /* Correções específicas para mobile cultivo */
-          @media (max-width: 767px) {
+          /* Correções específicas para mobile/tablet cultivo */
+          @media (max-width: 1023px) {
             .main-container {
               padding: 16px !important;
               max-width: 100vw !important;
