@@ -375,19 +375,19 @@ export default function BlogPage() {
             }
           }
           
-          /* Garantir que as imagens apareçam no mobile */
+          /* Garantir que as imagens apareçam */
           .blog-card .relative.h-48 {
             height: 12rem !important;
             min-height: 12rem !important;
-            display: block !important;
             position: relative !important;
+            overflow: hidden !important;
+            background-color: #1a1a1a !important;
           }
           
           .blog-card .absolute.inset-0 {
             background-size: cover !important;
             background-position: center !important;
             background-repeat: no-repeat !important;
-            display: block !important;
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
@@ -395,14 +395,12 @@ export default function BlogPage() {
             bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
+            z-index: 1 !important;
           }
           
-          /* Forçar exibição das imagens de fundo */
+          /* Debug: mostrar borda para verificar se o elemento existe */
           .blog-card .absolute.inset-0.bg-cover {
-            background-image: var(--bg-image) !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-repeat: no-repeat !important;
+            border: 1px solid rgba(255, 0, 0, 0.3) !important;
           }
           
           /* Corrigir z-index de modais */
@@ -482,30 +480,26 @@ export default function BlogPage() {
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
                 }}
               >
-                <div className="relative h-48 overflow-hidden" style={{ minHeight: '12rem' }}>
+                <div className="relative h-48 overflow-hidden">
                   {/* Imagem de fundo */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center" 
                     style={{ 
                       backgroundImage: article.imagem_url 
                         ? `url('${article.imagem_url}')` 
-                        : `url('https://source.unsplash.com/random/600x400?nature,technology&sig=${article.id}')`,
+                        : `url('https://picsum.photos/600/400?random=${article.id}')`,
                       filter: 'brightness(0.85) saturate(1.2)',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      width: '100%',
-                      height: '100%',
-                      display: 'block'
+                      minHeight: '12rem',
+                      backgroundColor: '#2a2a2a'
                     }}
+                    onLoad={() => console.log('Imagem carregada:', article.titulo)}
+                    onError={() => console.log('Erro ao carregar imagem:', article.titulo)}
                   />
                   {/* Overlay gradiente */}
                   <div 
                     className="absolute inset-0" 
                     style={{ 
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 70%)',
-                      width: '100%',
-                      height: '100%'
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 70%)'
                     }}
                   />
                   {/* Categoria */}
