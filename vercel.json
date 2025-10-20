@@ -1,12 +1,8 @@
 {
-  "buildCommand": "next build --no-lint",
-  "ignoreCommand": "node -e \"process.exit(0)\"",
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
   "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
   "functions": {
     "src/app/api/process-word/route.ts": {
       "maxDuration": 60
