@@ -379,9 +379,27 @@ export default function BlogPage() {
           .blog-card .relative.h-48 {
             height: 12rem !important;
             min-height: 12rem !important;
+            display: block !important;
+            position: relative !important;
           }
           
           .blog-card .absolute.inset-0 {
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            display: block !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+          }
+          
+          /* Forçar exibição das imagens de fundo */
+          .blog-card .absolute.inset-0.bg-cover {
+            background-image: var(--bg-image) !important;
             background-size: cover !important;
             background-position: center !important;
             background-repeat: no-repeat !important;
@@ -464,23 +482,34 @@ export default function BlogPage() {
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
                 }}
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-48 overflow-hidden" style={{ minHeight: '12rem' }}>
+                  {/* Imagem de fundo */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center" 
                     style={{ 
                       backgroundImage: article.imagem_url 
                         ? `url('${article.imagem_url}')` 
                         : `url('https://source.unsplash.com/random/600x400?nature,technology&sig=${article.id}')`,
-                      filter: 'brightness(0.85) saturate(1.2)'
+                      filter: 'brightness(0.85) saturate(1.2)',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      width: '100%',
+                      height: '100%',
+                      display: 'block'
                     }}
                   />
+                  {/* Overlay gradiente */}
                   <div 
                     className="absolute inset-0" 
                     style={{ 
                       background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 70%)',
+                      width: '100%',
+                      height: '100%'
                     }}
                   />
-                  <div className="absolute top-3 left-3">
+                  {/* Categoria */}
+                  <div className="absolute top-3 left-3 z-10">
                     <span 
                       className="px-2 py-1 text-xs font-medium rounded-md"
                       style={{ 
@@ -553,13 +582,14 @@ export default function BlogPage() {
 
         {/* Botão de carregar mais */}
         {filteredArticles.length > 0 && (
-          <div className="mt-10 text-center">
+          <div className="mt-10 text-center px-4">
             <button 
-              className="px-6 py-2.5 rounded-lg text-sm font-semibold blog-clickable-element"
+              className="w-full max-w-sm mx-auto px-6 py-3 rounded-lg text-sm font-semibold blog-clickable-element transition-all duration-200 hover:scale-105"
               style={{ 
-                backgroundColor: 'rgba(26, 32, 44, 0.7)',
-                border: `1px solid ${colors.green}50`,
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+                backgroundColor: 'rgba(26, 32, 44, 0.8)',
+                border: `1px solid ${colors.green}60`,
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
+                color: 'white'
               }}
             >
               Carregar Mais Artigos
